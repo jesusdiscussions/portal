@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Post — Community</title>
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --surface: #212121;
+      --surface-2: #303030;
+      --border: #3f3f3f;
+      --text: #f1f1f1;
+      --muted: #aaaaaa;
+      --accent: #3ea6ff;
+      --banner-h: 56px;
+      --anchor-inset: 192px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding-top: var(--banner-h);
+      font-family: "Roboto", "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+
+    .hidden { display: none !important; }
+
+    .countdown-banner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      height: var(--banner-h);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      background: #1a3a5c;
+      border-bottom: 1px solid var(--border);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .countdown-banner.closed { background: #4a4a4a; }
+
+    .countdown-banner .label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .countdown-units {
+      display: flex;
+      gap: 0.65rem;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .countdown-units span {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 2.5rem;
+    }
+
+    .countdown-units em {
+      font-style: normal;
+      font-size: 0.65rem;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    .countdown-banner.closed .countdown-units { display: none; }
+    .countdown-banner .closed-msg { display: none; font-weight: 700; letter-spacing: 0.06em; }
+    .countdown-banner.closed .closed-msg { display: block; }
+
+    .wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 1rem 1rem 3rem;
+    }
+
+    .page-title {
+      font-size: 1.25rem;
+      font-weight: 500;
+      margin: 0 0 0.25rem;
+    }
+
+    .page-sub {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .email-featured { margin-bottom: 1.5rem; }
+
+    .email-featured h2 {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0 0 0.5rem;
+    }
+
+    .email-subject {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+
+    .email-content-full {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.15rem 1.25rem;
+    }
+
+    #email-focus-anchor {
+      display: block;
+      height: 0;
+      margin-top: var(--anchor-inset);
+      scroll-margin-top: calc(var(--banner-h) + 12px);
+      pointer-events: none;
+    }
+
+    .email-body {
+      font-size: 0.92rem;
+      line-height: 1.55;
+      word-break: break-word;
+    }
+
+    .email-body img { max-width: 100%; height: auto; }
+
+    .attachments {
+      margin-top: 1rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .attachments ul {
+      list-style: none;
+      margin: 0.4rem 0 0;
+      padding: 0;
+    }
+
+    .attachments a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .attachments a:hover { text-decoration: underline; }
+
+    #comments-section {
+      scroll-margin-top: calc(var(--banner-h) + 12px);
+    }
+
+    .composer {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .composer.locked { opacity: 0.45; pointer-events: none; }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--surface-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .composer-main { flex: 1; min-width: 0; }
+
+    .composer-label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .composer textarea {
+      width: 100%;
+      min-height: 88px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 0.65rem 0.75rem;
+      font: inherit;
+      resize: vertical;
+    }
+
+    .composer textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 0.5rem;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #0f0f0f;
+      border: none;
+      border-radius: 18px;
+      padding: 0.5rem 1.1rem;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-ghost {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font: inherit;
+      cursor: pointer;
+      margin-right: 0.5rem;
+    }
+
+    .status-msg {
+      font-size: 0.8rem;
+      margin-top: 0.45rem;
+      min-height: 1rem;
+    }
+
+    .status-msg.ok { color: #6adb8a; }
+    .status-msg.err { color: #ff6b6b; }
+
+    .comment-thread {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .comment-main { flex: 1; min-width: 0; }
+
+    .comment-header {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .comment-author { font-size: 0.82rem; font-weight: 600; }
+    .comment-time { font-size: 0.75rem; color: var(--muted); }
+
+    .comment-text {
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .reply-link {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.35rem 0;
+      cursor: pointer;
+    }
+
+    .reply-link:hover { color: var(--text); }
+
+    .reply-form-panel { display: none; margin-top: 0.5rem; }
+    .reply-form-panel.open { display: block; }
+
+    .reply-form-panel textarea {
+      width: 100%;
+      min-height: 72px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 0.55rem 0.65rem;
+      font: inherit;
+    }
+
+    .replies { margin-top: 0.75rem; }
+    .replies .comment-thread { margin-bottom: 1rem; }
+
+    .empty-feed {
+      color: var(--muted);
+      font-style: italic;
+      padding: 0.5rem 0;
+    }
+
+    .load-state, .fatal-error {
+      text-align: center;
+      padding: 3rem 1rem;
+    }
+
+    .fatal-error { color: #ff6b6b; }
+  </style>
+</head>
+<body>
+  <header class="countdown-banner" id="countdownBanner">
+    <span class="label">Discussion closes in</span>
+    <div class="countdown-units" id="countdownUnits" aria-live="polite"></div>
+    <span class="closed-msg">DISCUSSION CLOSED</span>
+  </header>
+
+  <div class="wrap">
+    <div id="loadState" class="load-state">Loading community portal…</div>
+    <div id="fatalError" class="fatal-error hidden"></div>
+
+    <div id="portalMain" class="hidden">
+      <h1 class="page-title" id="pageTitle">Post</h1>
+      <p class="page-sub">Community portal</p>
+
+      <section class="email-featured">
+        <h2>Featured message</h2>
+        <div id="emailSubject" class="email-subject"></div>
+        <div class="email-content-full">
+          <span id="email-focus-anchor"></span>
+          <div id="emailBody" class="email-body"></div>
+          <div id="attachmentsBlock" class="attachments hidden">
+            <strong>Downloads</strong>
+            <ul id="attachmentsList"></ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="comments-section">
+        <div class="composer" id="composer">
+          <div class="avatar" id="userAvatar">?</div>
+          <div class="composer-main">
+            <div class="composer-label" id="composerLabel">Add a comment</div>
+            <textarea id="mainCommentText" placeholder="Share your thoughts…"></textarea>
+            <div class="form-actions">
+              <button type="button" class="btn-primary" id="mainSubmitBtn">Comment</button>
+            </div>
+            <div id="mainStatus" class="status-msg" aria-live="polite"></div>
+          </div>
+        </div>
+
+        <div id="commentFeed"></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxa3oj2BTcEQladm9llk7yyMYU2vcy7GzQ_dqbnPVGAUiSY9Imf_VZqjIJAHSDD-Q_wbw/exec';
+
+      var params = new URLSearchParams(window.location.search);
+      var payload = {
+        action: 'comments',
+        post: (params.get('post') || params.get('camp') || '').trim(),
+        email: (params.get('email') || '').trim(),
+        fname: (params.get('fname') || '').trim(),
+        lname: (params.get('lname') || '').trim(),
+        deadline: (params.get('deadline') || '').trim()
+      };
+
+      var displayName = [payload.fname, payload.lname].filter(Boolean).join(' ').trim() || 'Guest';
+      var portal = {
+        comments: [],
+        expired: false,
+        isLocked: false,
+        deadlineIso: payload.deadline || ''
+      };
+
+      function postToAppsScript(data) {
+        return fetch(WEBAPP_URL, {
+          method: 'POST',
+          redirect: 'follow',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(data)
+        }).then(function (res) {
+          if (!res.ok) throw new Error('Server returned ' + res.status);
+          return res.json();
+        });
+      }
+
+      function escapeHtml(s) {
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+      }
+
+      function showFatal(msg) {
+        document.getElementById('loadState').classList.add('hidden');
+        document.getElementById('fatalError').classList.remove('hidden');
+        document.getElementById('fatalError').textContent = msg;
+      }
+
+      function init() {
+        if (!payload.post) {
+          showFatal('Missing post (Post ID) in the URL.');
+          return;
+        }
+        if (!payload.email) {
+          showFatal('Missing email in the URL.');
+          return;
+        }
+
+        document.getElementById('userAvatar').textContent =
+          (displayName.charAt(0) || '?').toUpperCase();
+        document.getElementById('composerLabel').textContent =
+          'Commenting as ' + displayName;
+
+        postToAppsScript(payload)
+          .then(function (data) {
+            if (!data || data.status !== 'success') {
+              showFatal((data && data.message) || 'Could not load portal.');
+              return;
+            }
+            renderPortal(data);
+          })
+          .catch(function (e) {
+            showFatal('Could not load portal. ' + (e.message || ''));
+          });
+      }
+
+      function renderPortal(data) {
+        document.getElementById('loadState').classList.add('hidden');
+        document.getElementById('portalMain').classList.remove('hidden');
+
+        var displayPostId = data.postId || data.campaignId;
+        if (displayPostId) {
+          document.getElementById('pageTitle').textContent = 'Post ' + displayPostId;
+        }
+        if (data.deadlineIso) portal.deadlineIso = data.deadlineIso;
+        portal.expired = !!data.expired;
+        portal.comments = data.comments || [];
+
+        document.getElementById('emailSubject').textContent = data.emailSubject || '';
+        document.getElementById('emailBody').innerHTML =
+          data.emailBodyHtml || '<p><em>No message body on file.</em></p>';
+
+        var attBlock = document.getElementById('attachmentsBlock');
+        var attList = document.getElementById('attachmentsList');
+        attList.innerHTML = '';
+        if (data.attachments && data.attachments.length) {
+          attBlock.classList.remove('hidden');
+          data.attachments.forEach(function (f) {
+            var li = document.createElement('li');
+            var a = document.createElement('a');
+            a.href = f.url;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.textContent = f.name || f.id;
+            li.appendChild(a);
+            attList.appendChild(li);
+          });
+        }
+
+        renderFeed(portal.comments);
+        renderCountdown();
+        setInterval(renderCountdown, 1000);
+
+        if (portal.expired) lockDiscussion();
+
+        document.getElementById('mainSubmitBtn').addEventListener('click', function () {
+          var txt = document.getElementById('mainCommentText').value.trim();
+          if (!txt) return;
+          submitComment(txt, '', document.getElementById('mainStatus'), function () {
+            document.getElementById('mainCommentText').value = '';
+          });
+        });
+
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            var anchor = document.getElementById('email-focus-anchor');
+            if (anchor) anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        });
+      }
+
+      function getExpiry() {
+        if (!portal.deadlineIso) return null;
+        var d = new Date(portal.deadlineIso);
+        return isNaN(d.getTime()) ? null : d;
+      }
+
+      function pad2(n) { return n < 10 ? '0' + n : String(n); }
+
+      function renderCountdown() {
+        var unitsEl = document.getElementById('countdownUnits');
+        var banner = document.getElementById('countdownBanner');
+        var expiry = getExpiry();
+
+        if (!expiry) {
+          unitsEl.innerHTML = '<span>∞<em>open</em></span>';
+          return;
+        }
+
+        var remaining = expiry.getTime() - Date.now();
+        if (remaining <= 0 || portal.expired) {
+          lockDiscussion();
+          return;
+        }
+
+        banner.classList.remove('closed');
+        var totalSec = Math.floor(remaining / 1000);
+        var days = Math.floor(totalSec / 86400);
+        var hours = Math.floor((totalSec % 86400) / 3600);
+        var mins = Math.floor((totalSec % 3600) / 60);
+        var secs = totalSec % 60;
+
+        unitsEl.innerHTML =
+          '<span>' + days + '<em>Days</em></span>' +
+          '<span>' + pad2(hours) + '<em>Hrs</em></span>' +
+          '<span>' + pad2(mins) + '<em>Min</em></span>' +
+          '<span>' + pad2(secs) + '<em>Sec</em></span>';
+      }
+
+      function lockDiscussion() {
+        if (portal.isLocked) return;
+        portal.isLocked = true;
+        document.getElementById('countdownBanner').classList.add('closed');
+        document.getElementById('composer').classList.add('locked');
+        document.querySelectorAll('.reply-link, .reply-form-panel').forEach(function (el) {
+          el.style.display = 'none';
+        });
+      }
+
+      function formatTime(iso) {
+        if (!iso) return '';
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso);
+        return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+      }
+
+      function buildTree(flat) {
+        var map = {};
+        var roots = [];
+        flat.forEach(function (c) {
+          map[c.id] = Object.assign({}, c, { children: [] });
+        });
+        flat.forEach(function (c) {
+          var node = map[c.id];
+          if (c.parentId && map[c.parentId]) {
+            map[c.parentId].children.push(node);
+          } else {
+            roots.push(node);
+          }
+        });
+        return roots;
+      }
+
+      function renderCommentNode(node) {
+        var wrap = document.createElement('div');
+        wrap.className = 'comment-thread';
+
+        var avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.textContent = (node.displayName.charAt(0) || '?').toUpperCase();
+
+        var main = document.createElement('div');
+        main.className = 'comment-main';
+
+        var header = document.createElement('div');
+        header.className = 'comment-header';
+        header.innerHTML =
+          '<span class="comment-author">' + escapeHtml(node.displayName) + '</span>' +
+          '<span class="comment-time">' + escapeHtml(formatTime(node.timestamp)) + '</span>';
+
+        var body = document.createElement('div');
+        body.className = 'comment-text';
+        body.textContent = node.text;
+
+        main.appendChild(header);
+        main.appendChild(body);
+
+        if (!portal.isLocked) {
+          var replyBtn = document.createElement('button');
+          replyBtn.type = 'button';
+          replyBtn.className = 'reply-link';
+          replyBtn.textContent = 'Reply';
+
+          var replyPanel = document.createElement('div');
+          replyPanel.className = 'reply-form-panel';
+          replyPanel.innerHTML =
+            '<textarea placeholder="Add a reply…"></textarea>' +
+            '<div class="form-actions">' +
+            '<button type="button" class="btn-ghost reply-cancel">Cancel</button>' +
+            '<button type="button" class="btn-primary reply-submit">Reply</button>' +
+            '</div><div class="status-msg reply-status"></div>';
+
+          replyBtn.addEventListener('click', function () {
+            document.querySelectorAll('.reply-form-panel.open').forEach(function (p) {
+              if (p !== replyPanel) p.classList.remove('open');
+            });
+            replyPanel.classList.toggle('open');
+            replyPanel.querySelector('textarea').focus();
+          });
+
+          replyPanel.querySelector('.reply-cancel').addEventListener('click', function () {
+            replyPanel.classList.remove('open');
+            replyPanel.querySelector('textarea').value = '';
+          });
+
+          replyPanel.querySelector('.reply-submit').addEventListener('click', function () {
+            var txt = replyPanel.querySelector('textarea').value.trim();
+            if (!txt) return;
+            submitComment(txt, node.id, replyPanel.querySelector('.reply-status'), function () {
+              replyPanel.classList.remove('open');
+              replyPanel.querySelector('textarea').value = '';
+            });
+          });
+
+          main.appendChild(replyBtn);
+          main.appendChild(replyPanel);
+        }
+
+        wrap.appendChild(avatar);
+        wrap.appendChild(main);
+
+        if (node.children && node.children.length) {
+          var childBox = document.createElement('div');
+          childBox.className = 'replies';
+          node.children.forEach(function (child) {
+            childBox.appendChild(renderCommentNode(child));
+          });
+          main.appendChild(childBox);
+        }
+
+        return wrap;
+      }
+
+      function renderFeed(list) {
+        var feed = document.getElementById('commentFeed');
+        feed.innerHTML = '';
+        if (!list || !list.length) {
+          feed.innerHTML = '<p class="empty-feed">No comments yet. Be the first to share your thoughts.</p>';
+          return;
+        }
+        buildTree(list).forEach(function (node) {
+          feed.appendChild(renderCommentNode(node));
+        });
+      }
+
+      function submitComment(text, parentId, statusEl, onSuccess) {
+        if (portal.isLocked) {
+          statusEl.textContent = 'Discussion is closed.';
+          statusEl.className = 'status-msg err';
+          return;
+        }
+
+        statusEl.textContent = 'Posting…';
+        statusEl.className = 'status-msg';
+
+        postToAppsScript({
+          post: payload.post,
+          comment: text,
+          email: payload.email,
+          fname: payload.fname,
+          lname: payload.lname,
+          parentId: parentId || ''
+        })
+          .then(function (data) {
+            if (data && (data.status === 'success' || data.success)) {
+              statusEl.textContent = data.message || 'Posted.';
+              statusEl.className = 'status-msg ok';
+              portal.comments = data.comments || portal.comments;
+              renderFeed(portal.comments);
+              if (onSuccess) onSuccess();
+            } else {
+              statusEl.textContent = (data && data.message) || 'Could not post.';
+              statusEl.className = 'status-msg err';
+              if (data && data.expired) {
+                portal.expired = true;
+                lockDiscussion();
+              }
+            }
+          })
+          .catch(function () {
+            statusEl.textContent = 'Could not post. Try again.';
+            statusEl.className = 'status-msg err';
+          });
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
