@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Campaign <?= campaignId ?> — Community</title>
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --surface: #212121;
+      --surface-2: #303030;
+      --border: #3f3f3f;
+      --text: #f1f1f1;
+      --muted: #aaaaaa;
+      --accent: #3ea6ff;
+      --banner-active: #1a3a5c;
+      --banner-closed: #4a4a4a;
+      --banner-h: 56px;
+      --email-preview-h: 168px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding-top: var(--banner-h);
+      font-family: "Roboto", "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+
+    /* Sticky countdown banner */
+    .countdown-banner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      height: var(--banner-h);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      background: var(--banner-active);
+      border-bottom: 1px solid var(--border);
+      font-variant-numeric: tabular-nums;
+      transition: background 0.3s;
+    }
+
+    .countdown-banner.closed {
+      background: var(--banner-closed);
+    }
+
+    .countdown-banner .label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .countdown-units {
+      display: flex;
+      gap: 0.65rem;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .countdown-units span {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 2.5rem;
+    }
+
+    .countdown-units em {
+      font-style: normal;
+      font-size: 0.65rem;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    .countdown-banner.closed .countdown-units {
+      display: none;
+    }
+
+    .countdown-banner .closed-msg {
+      display: none;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+
+    .countdown-banner.closed .closed-msg {
+      display: block;
+    }
+
+    .wrap {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 1.25rem 1rem 3rem;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 500;
+      margin: 0 0 0.25rem;
+    }
+
+    .sub {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-bottom: 1.25rem;
+    }
+
+    /* Email preview — bottom-focused crop with top fade */
+    .email-section {
+      margin-bottom: 1.5rem;
+    }
+
+    .email-section h2 {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0 0 0.5rem;
+    }
+
+    .email-subject {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+
+    .email-preview {
+      position: relative;
+      max-height: var(--email-preview-h);
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .email-preview::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 55%;
+      background: linear-gradient(to bottom, var(--surface) 10%, transparent);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .email-preview-inner {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      min-height: var(--email-preview-h);
+      padding: 1rem 1.1rem;
+    }
+
+    .email-body {
+      font-size: 0.9rem;
+      word-break: break-word;
+    }
+
+    .email-body img {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .attachments {
+      margin-top: 0.85rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .attachments ul {
+      list-style: none;
+      margin: 0.35rem 0 0;
+      padding: 0;
+    }
+
+    .attachments li {
+      margin: 0.35rem 0;
+    }
+
+    .attachments a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .attachments a:hover {
+      text-decoration: underline;
+    }
+
+    /* Comments */
+    #comments-section {
+      scroll-margin-top: calc(var(--banner-h) + 12px);
+    }
+
+    .interaction-zone {
+      margin-bottom: 1.25rem;
+    }
+
+    .interaction-zone.hidden {
+      display: none;
+    }
+
+    .comment-trigger {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+      padding: 0.35rem 0;
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--surface-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .comment-trigger-prompt {
+      flex: 1;
+      padding: 0.6rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      color: var(--muted);
+      background: var(--surface);
+      font-size: 0.9rem;
+    }
+
+    .comment-form-panel {
+      display: none;
+      margin-top: 0.75rem;
+      padding-left: 52px;
+    }
+
+    .comment-form-panel.open {
+      display: block;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 80px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 0.65rem 0.75rem;
+      font: inherit;
+      resize: vertical;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    button {
+      border: none;
+      border-radius: 18px;
+      padding: 0.5rem 1rem;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #0f0f0f;
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .status-msg {
+      font-size: 0.8rem;
+      margin-top: 0.5rem;
+      min-height: 1.1rem;
+    }
+
+    .status-msg.ok { color: #6adb8a; }
+    .status-msg.err { color: #ff6b6b; }
+
+    .comment-feed {
+      margin-top: 0.5rem;
+    }
+
+    .comment-thread {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .comment-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .comment-header {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .comment-author {
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    .comment-time {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .comment-text {
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .reply-link {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.35rem 0;
+      cursor: pointer;
+    }
+
+    .reply-link:hover {
+      color: var(--text);
+    }
+
+    .replies {
+      margin-top: 0.75rem;
+    }
+
+    .replies .comment-thread {
+      margin-bottom: 1rem;
+    }
+
+    .reply-form-panel {
+      display: none;
+      margin-top: 0.5rem;
+    }
+
+    .reply-form-panel.open {
+      display: block;
+    }
+
+    .empty-feed {
+      color: var(--muted);
+      font-style: italic;
+      padding: 1rem 0;
+    }
+
+    .no-campaign {
+      color: #ff6b6b;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header class="countdown-banner" id="countdownBanner">
+    <span class="label">Discussion closes in</span>
+    <div class="countdown-units" id="countdownUnits" aria-live="polite"></div>
+    <span class="closed-msg">DISCUSSION CLOSED</span>
+  </header>
+
+  <div class="wrap">
+    <header>
+      <h1>Campaign <?= campaignId ?></h1>
+      <p class="sub">Community portal</p>
+    </header>
+
+    <? if (!hasCampaign) { ?>
+      <p class="no-campaign">This campaign was not found in CampaignLog.</p>
+    <? } ?>
+
+    <section class="email-section" id="emailSection">
+      <h2>Featured message</h2>
+      <? if (emailSubject) { ?>
+        <div class="email-subject"><?= emailSubject ?></div>
+      <? } ?>
+      <div class="email-preview">
+        <div class="email-preview-inner">
+          <div class="email-body" id="emailBody"></div>
+          <div class="attachments" id="attachmentsBlock" style="display:none;">
+            <strong>Downloads</strong>
+            <ul id="attachmentsList"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="comments-section">
+      <div class="interaction-zone" id="interactionZone">
+        <div class="comment-trigger" id="mainCommentTrigger" role="button" tabindex="0">
+          <div class="avatar" id="userAvatar">?</div>
+          <div class="comment-trigger-prompt">Add a comment…</div>
+        </div>
+        <div class="comment-form-panel" id="mainCommentForm">
+          <textarea id="mainCommentText" placeholder="Add a public comment…"></textarea>
+          <div class="form-actions">
+            <button type="button" class="btn-ghost" id="mainCancelBtn">Cancel</button>
+            <button type="button" class="btn-primary" id="mainSubmitBtn">Comment</button>
+          </div>
+          <div id="mainStatus" class="status-msg" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <div class="comment-feed" id="commentFeed"></div>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      var CAMPAIGN = <?= JSON.stringify(campaignId) ?>;
+      var USER_EMAIL = <?= JSON.stringify(userEmail) ?>;
+      var FNAME = <?= JSON.stringify(fname) ?>;
+      var LNAME = <?= JSON.stringify(lname) ?>;
+      var COMMENTS = <?= commentsJson ?>;
+      var SENT_AT_ISO = <?= JSON.stringify(sentAtIso) ?>;
+      var DAYS_OPEN = <?= daysOpen ?>;
+      var SERVER_EXPIRED = <?= JSON.stringify(expired) ?>;
+      var HAS_CAMPAIGN = <?= JSON.stringify(hasCampaign) ?>;
+      var POST_URL = <?= JSON.stringify(postUrl) ?>;
+      var EMAIL_BODY_HTML = <?= JSON.stringify(emailBodyHtml) ?>;
+      var ATTACHMENTS = <?= attachmentsJson ?>;
+
+      var displayName = [FNAME, LNAME].filter(Boolean).join(' ').trim() || 'Guest';
+      var initials = (displayName.charAt(0) || '?').toUpperCase();
+      var isLocked = false;
+
+      var banner = document.getElementById('countdownBanner');
+      var unitsEl = document.getElementById('countdownUnits');
+      var interactionZone = document.getElementById('interactionZone');
+      var mainTrigger = document.getElementById('mainCommentTrigger');
+      var mainForm = document.getElementById('mainCommentForm');
+      var mainText = document.getElementById('mainCommentText');
+      var mainSubmit = document.getElementById('mainSubmitBtn');
+      var mainCancel = document.getElementById('mainCancelBtn');
+      var mainStatus = document.getElementById('mainStatus');
+      var commentFeed = document.getElementById('commentFeed');
+      var emailBodyEl = document.getElementById('emailBody');
+      var attachmentsBlock = document.getElementById('attachmentsBlock');
+      var attachmentsList = document.getElementById('attachmentsList');
+
+      document.getElementById('userAvatar').textContent = initials;
+      emailBodyEl.innerHTML = EMAIL_BODY_HTML || '<p><em>No message body on file.</em></p>';
+
+      if (ATTACHMENTS && ATTACHMENTS.length) {
+        attachmentsBlock.style.display = 'block';
+        ATTACHMENTS.forEach(function (f) {
+          var li = document.createElement('li');
+          var a = document.createElement('a');
+          a.href = f.url;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.textContent = f.name || f.id;
+          li.appendChild(a);
+          attachmentsList.appendChild(li);
+        });
+      }
+
+      function getExpiry() {
+        if (!SENT_AT_ISO || !DAYS_OPEN || DAYS_OPEN <= 0) {
+          return null;
+        }
+        var sent = new Date(SENT_AT_ISO);
+        if (isNaN(sent.getTime())) {
+          return null;
+        }
+        return new Date(sent.getTime() + DAYS_OPEN * 24 * 60 * 60 * 1000);
+      }
+
+      function pad2(n) {
+        return n < 10 ? '0' + n : String(n);
+      }
+
+      function renderCountdown() {
+        var expiry = getExpiry();
+        if (!expiry) {
+          unitsEl.innerHTML =
+            '<span>∞<em>open</em></span>';
+          if (SERVER_EXPIRED) {
+            lockDiscussion();
+          }
+          return;
+        }
+
+        var remaining = expiry.getTime() - Date.now();
+        if (remaining <= 0 || SERVER_EXPIRED) {
+          lockDiscussion();
+          return;
+        }
+
+        var totalSec = Math.floor(remaining / 1000);
+        var days = Math.floor(totalSec / 86400);
+        var hours = Math.floor((totalSec % 86400) / 3600);
+        var mins = Math.floor((totalSec % 3600) / 60);
+        var secs = totalSec % 60;
+
+        unitsEl.innerHTML =
+          '<span>' + days + '<em>Days</em></span>' +
+          '<span>' + pad2(hours) + '<em>Hrs</em></span>' +
+          '<span>' + pad2(mins) + '<em>Min</em></span>' +
+          '<span>' + pad2(secs) + '<em>Sec</em></span>';
+      }
+
+      function lockDiscussion() {
+        if (isLocked) {
+          return;
+        }
+        isLocked = true;
+        banner.classList.add('closed');
+        interactionZone.classList.add('hidden');
+        document.querySelectorAll('.reply-link, .reply-form-panel').forEach(function (el) {
+          el.style.display = 'none';
+        });
+      }
+
+      function openMainForm() {
+        if (isLocked) {
+          return;
+        }
+        mainForm.classList.add('open');
+        mainText.focus();
+      }
+
+      function closeMainForm() {
+        mainForm.classList.remove('open');
+        mainText.value = '';
+        mainStatus.textContent = '';
+      }
+
+      mainTrigger.addEventListener('click', openMainForm);
+      mainTrigger.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openMainForm();
+        }
+      });
+      mainCancel.addEventListener('click', closeMainForm);
+
+      function escapeHtml(str) {
+        var d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+      }
+
+      function formatTime(iso) {
+        if (!iso) {
+          return '';
+        }
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) {
+          return String(iso);
+        }
+        return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+      }
+
+      function buildTree(flat) {
+        var map = {};
+        var roots = [];
+        flat.forEach(function (c) {
+          map[c.id] = Object.assign({}, c, { children: [] });
+        });
+        flat.forEach(function (c) {
+          var node = map[c.id];
+          if (c.parentId && map[c.parentId]) {
+            map[c.parentId].children.push(node);
+          } else {
+            roots.push(node);
+          }
+        });
+        return roots;
+      }
+
+      function renderCommentNode(node, depth) {
+        var wrap = document.createElement('div');
+        wrap.className = 'comment-thread';
+        wrap.dataset.commentId = node.id;
+
+        var avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.textContent = (node.displayName.charAt(0) || '?').toUpperCase();
+
+        var main = document.createElement('div');
+        main.className = 'comment-main';
+
+        var header = document.createElement('div');
+        header.className = 'comment-header';
+        header.innerHTML =
+          '<span class="comment-author">' + escapeHtml(node.displayName) + '</span>' +
+          '<span class="comment-time">' + escapeHtml(formatTime(node.timestamp)) + '</span>';
+
+        var body = document.createElement('div');
+        body.className = 'comment-text';
+        body.textContent = node.text;
+
+        main.appendChild(header);
+        main.appendChild(body);
+
+        if (!isLocked) {
+          var replyBtn = document.createElement('button');
+          replyBtn.type = 'button';
+          replyBtn.className = 'reply-link';
+          replyBtn.textContent = 'Reply';
+
+          var replyPanel = document.createElement('div');
+          replyPanel.className = 'reply-form-panel';
+          replyPanel.innerHTML =
+            '<textarea placeholder="Add a reply…"></textarea>' +
+            '<div class="form-actions">' +
+            '<button type="button" class="btn-ghost reply-cancel">Cancel</button>' +
+            '<button type="button" class="btn-primary reply-submit">Reply</button>' +
+            '</div>' +
+            '<div class="status-msg reply-status"></div>';
+
+          replyBtn.addEventListener('click', function () {
+            document.querySelectorAll('.reply-form-panel.open').forEach(function (p) {
+              if (p !== replyPanel) {
+                p.classList.remove('open');
+              }
+            });
+            replyPanel.classList.toggle('open');
+            replyPanel.querySelector('textarea').focus();
+          });
+
+          replyPanel.querySelector('.reply-cancel').addEventListener('click', function () {
+            replyPanel.classList.remove('open');
+            replyPanel.querySelector('textarea').value = '';
+            replyPanel.querySelector('.reply-status').textContent = '';
+          });
+
+          replyPanel.querySelector('.reply-submit').addEventListener('click', function () {
+            var txt = replyPanel.querySelector('textarea').value.trim();
+            if (!txt) {
+              return;
+            }
+            submitComment(txt, node.id, replyPanel.querySelector('.reply-status'), function () {
+              replyPanel.classList.remove('open');
+              replyPanel.querySelector('textarea').value = '';
+            });
+          });
+
+          main.appendChild(replyBtn);
+          main.appendChild(replyPanel);
+        }
+
+        wrap.appendChild(avatar);
+        wrap.appendChild(main);
+
+        if (node.children && node.children.length) {
+          var childBox = document.createElement('div');
+          childBox.className = 'replies';
+          node.children.forEach(function (child) {
+            childBox.appendChild(renderCommentNode(child, depth + 1));
+          });
+          main.appendChild(childBox);
+        }
+
+        return wrap;
+      }
+
+      function renderFeed(list) {
+        commentFeed.innerHTML = '';
+        if (!list || list.length === 0) {
+          commentFeed.innerHTML = '<p class="empty-feed">No comments yet. Be the first to share your thoughts.</p>';
+          return;
+        }
+        var tree = buildTree(list);
+        tree.forEach(function (node) {
+          commentFeed.appendChild(renderCommentNode(node, 0));
+        });
+      }
+
+      function submitComment(text, parentId, statusEl, onSuccess) {
+        if (isLocked) {
+          statusEl.textContent = 'Discussion is closed.';
+          statusEl.className = 'status-msg err';
+          return;
+        }
+
+        statusEl.textContent = 'Posting…';
+        statusEl.className = 'status-msg';
+
+        fetch(POST_URL, {
+          method: 'POST',
+          redirect: 'follow',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            camp: CAMPAIGN,
+            comment: text,
+            email: USER_EMAIL,
+            fname: FNAME,
+            lname: LNAME,
+            parentId: parentId || ''
+          })
+        })
+          .then(function (res) { return res.json(); })
+          .then(function (data) {
+            if (data.status === 'success' || data.success) {
+              statusEl.textContent = data.message;
+              statusEl.className = 'status-msg ok';
+              COMMENTS = data.comments;
+              renderFeed(COMMENTS);
+              if (onSuccess) {
+                onSuccess();
+              }
+            } else {
+              statusEl.textContent = data.message;
+              statusEl.className = 'status-msg err';
+              if (data.expired || data.status === 'error') {
+                lockDiscussion();
+                renderFeed(COMMENTS);
+              }
+            }
+          })
+          .catch(function () {
+            statusEl.textContent = 'Could not post. Try again.';
+            statusEl.className = 'status-msg err';
+          });
+      }
+
+      mainSubmit.addEventListener('click', function () {
+        var txt = mainText.value.trim();
+        if (!txt) {
+          return;
+        }
+        submitComment(txt, '', mainStatus, closeMainForm);
+      });
+
+      renderFeed(COMMENTS);
+      renderCountdown();
+      setInterval(renderCountdown, 1000);
+
+      if (SERVER_EXPIRED) {
+        lockDiscussion();
+        renderFeed(COMMENTS);
+      }
+
+      window.addEventListener('load', function () {
+        var target = document.getElementById('comments-section');
+        if (target) {
+          window.scrollTo({ top: target.offsetTop - 8, behavior: 'smooth' });
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
