@@ -3,11 +3,7 @@
     "runtimeVersion": "V8",
     "dependencies": {
     },
-    "exceptionLogging": "CLOUD",
-    "oauthScopes": [
-      "https://googleapis.com",
-      "https://googleapis.com",
-      "https://www.googleapis.com/auth/spreadsheets",
-      "https://googleapis.com"
-    ]
+    "exceptionLogging": "CLOUD"
   }
+  
+  
