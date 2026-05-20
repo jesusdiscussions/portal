@@ -221,31 +221,38 @@
         return d.innerHTML;
       }
 
-      function apiGet(query) {
-        var url = new URL(API_URL);
-        url.searchParams.set('api', 'json');
-        Object.keys(query).forEach(function (k) {
-          if (query[k] != null && query[k] !== '') url.searchParams.set(k, query[k]);
-        });
-        return fetch(url.toString(), { method: 'GET', redirect: 'follow' })
-          .then(function (r) { return r.text(); })
-          .then(function (t) { return JSON.parse(t); });
-      }
-
-      function apiPost(body) {
-        return fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(body),
-          redirect: 'follow'
-        }).then(function (r) { return r.text(); })
-          .then(function (t) {
-            if (t === 'SUCCESS') return { ok: true };
-            try { return JSON.parse(t); } catch (e) {
-              if (t.indexOf('ERROR:') === 0) throw new Error(t.slice(6).trim());
-              throw new Error(t || 'Request failed');
+      function apiJsonp(params) {
+        return new Promise(function (resolve, reject) {
+          var cb = 'bpe_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+          var url = new URL(API_URL);
+          url.searchParams.set('api', 'json');
+          Object.keys(params).forEach(function (k) {
+            if (params[k] != null && params[k] !== '') {
+              url.searchParams.set(k, String(params[k]));
             }
           });
+          url.searchParams.set('callback', cb);
+          var timer = setTimeout(function () {
+            cleanup();
+            reject(new Error('Request timed out'));
+          }, 45000);
+          var script = document.createElement('script');
+          function cleanup() {
+            clearTimeout(timer);
+            delete window[cb];
+            if (script.parentNode) script.parentNode.removeChild(script);
+          }
+          window[cb] = function (data) {
+            cleanup();
+            resolve(data);
+          };
+          script.onerror = function () {
+            cleanup();
+            reject(new Error('Failed to fetch'));
+          };
+          script.src = url.toString();
+          document.head.appendChild(script);
+        });
       }
 
       function loadPostJson() {
@@ -594,7 +601,7 @@
         statusEl.textContent = 'Posting…';
         statusEl.className = 'status-msg';
 
-        apiPost({
+        apiJsonp({
           cmd: 'comment',
           post: postId,
           camp: postId,
@@ -631,7 +638,7 @@
 
         Promise.all([
           loadPostJson().catch(function () { return null; }),
-          apiGet({ cmd: 'getComments', post: postId, camp: postId })
+          apiJsonp({ cmd: 'getComments', post: postId, camp: postId })
         ]).then(function (results) {
           var postJson = results[0];
           var commentResp = results[1];
@@ -640,7 +647,7 @@
             state.comments = commentResp.comments || [];
           }
 
-          return apiGet({ cmd: 'getPortal', post: postId, camp: postId }).then(function (portal) {
+          return apiJsonp({ cmd: 'getPortal', post: postId, camp: postId }).then(function (portal) {
             if (portal && portal.ok) {
               if (portal.deadlineIso) state.deadlineIso = portal.deadlineIso;
               state.expired = !!portal.expired;

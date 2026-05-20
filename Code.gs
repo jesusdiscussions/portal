@@ -45,6 +45,7 @@ var CMT = { ID: 0, PARENT: 1, POST: 2, TIME: 3, EMAIL: 4, NAME: 5, TEXT: 6 };
 // ——— Menu ———
 
 function onOpen() {
+  rememberSpreadsheetId_();
   SpreadsheetApp.getUi()
     .createMenu('Blog Platform Engine')
     .addItem('Setup sheets (one-shot)', 'setupSheets')
@@ -74,7 +75,8 @@ function promptGitHubPagesUrl() {
 }
 
 function setupSheets() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  rememberSpreadsheetId_();
+  var ss = openSpreadsheet_();
   var postResult = ensureSheetWithHeaders(ss, SHEET_POST_LOG, POST_LOG_HEADERS);
   ensureSheetWithHeaders(ss, SHEET_COMMENTS, COMMENTS_LOG_HEADERS);
   SpreadsheetApp.getUi().alert(
@@ -88,6 +90,7 @@ function setupSheets() {
 // ——— Post engine ———
 
 function runPostEngine() {
+  rememberSpreadsheetId_();
   var sheet = getPostLogSheet();
   if (!sheet) {
     SpreadsheetApp.getUi().alert('Missing sheet: "' + SHEET_POST_LOG + '".');
@@ -514,23 +517,32 @@ function syncWebPostToGitHub(payload, isLaunch) {
 function doGet(e) {
   var params = (e && e.parameter) || {};
   if (String(params.api || '').toLowerCase() === 'json') {
-    return textOut(JSON.stringify(handleApiRequest(mergeParams(params, {}))));
+    var result = handleApiRequest(mergeParams(params, {}));
+    var json = serializeApiResult_(result);
+    var callback = String(params.callback || '').trim();
+    if (callback && /^[a-zA-Z_$][\w.$]*$/.test(callback)) {
+      return ContentService.createTextOutput(callback + '(' + json + ')')
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+    return textOut(json);
   }
   return textOut(
-    'Blog Platform Engine API. Use POST (text/plain JSON) or GET ?api=json&cmd=...'
+    'Blog Platform Engine API. Use GET ?api=json&cmd=... or JSONP with &callback=...'
   );
+}
+
+function serializeApiResult_(result) {
+  if (result._rawJson) return result._rawJson;
+  if (result.ok === false) {
+    return JSON.stringify({ ok: false, message: result.message || 'Request failed' });
+  }
+  return JSON.stringify(result);
 }
 
 function doPost(e) {
   var payload = parseRequestBody(e);
   var result = handleApiRequest(payload);
-  if (result._rawJson) {
-    return textOut(result._rawJson);
-  }
-  if (result.ok) {
-    return textOut('SUCCESS');
-  }
-  return textOut('ERROR: ' + (result.message || 'Request failed'));
+  return textOut(serializeApiResult_(result));
 }
 
 function mergeParams(params, into) {
@@ -584,6 +596,12 @@ function apiStatusUpdate(payload, newStatus) {
   var email = String(payload.email || '').trim();
   if (!postId) return { ok: false, message: 'Missing post parameter.' };
   if (!email) return { ok: false, message: 'Missing email parameter.' };
+  if (!getPostLogSheet()) {
+    return {
+      ok: false,
+      message: 'Spreadsheet not linked. Open the PostLog sheet once, then run Setup.'
+    };
+  }
 
   var updated = updateSubscriberStatus(postId, email, newStatus);
   if (!updated) {
@@ -731,20 +749,24 @@ function updateSubscriberStatus(webPostId, email, newStatus) {
   var emailCol = colIndex(colMap, HEADER_EMAIL, 6);
   var statusCol = colIndex(colMap, HEADER_STATUS, 1);
   var targetPost = String(webPostId).trim();
-  var targetEmail = String(email).trim().toLowerCase();
+  var targetEmail = normalizeEmail_(email);
   var clusters = buildPostClusters(sheet, headers, lastRow, lastCol);
 
   for (var c = 0; c < clusters.length; c++) {
     if (getRouting(clusters[c].master, colMap).webPostId !== targetPost) continue;
     for (var r = 0; r < clusters[c].rows.length; r++) {
       var entry = clusters[c].rows[r];
-      if (String(entry.row[emailCol] || '').trim().toLowerCase() === targetEmail) {
+      if (normalizeEmail_(entry.row[emailCol]) === targetEmail) {
         sheet.getRange(entry.sheetRow, statusCol + 1).setValue(newStatus);
         return true;
       }
     }
   }
   return false;
+}
+
+function normalizeEmail_(val) {
+  return String(val || '').trim().replace(/\s+/g, '').toLowerCase();
 }
 
 function loadComments(postId) {
@@ -815,20 +837,55 @@ function resolveAttachmentList(raw) {
 
 // ——— Sheet helpers ———
 
+function rememberSpreadsheetId_() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (ss) {
+      PropertiesService.getScriptProperties().setProperty('SPREADSHEET_ID', ss.getId());
+    }
+  } catch (err) {
+    Logger.log('rememberSpreadsheetId_: ' + err.message);
+  }
+}
+
+function openSpreadsheet_() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('SPREADSHEET_ID');
+  if (id) {
+    try {
+      return SpreadsheetApp.openById(id);
+    } catch (err) {
+      Logger.log('openById failed: ' + err.message);
+    }
+  }
+  try {
+    var active = SpreadsheetApp.getActiveSpreadsheet();
+    if (active) {
+      props.setProperty('SPREADSHEET_ID', active.getId());
+      return active;
+    }
+  } catch (err) {
+    Logger.log('getActiveSpreadsheet failed: ' + err.message);
+  }
+  return null;
+}
+
 function getPostLogSheet() {
-  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_POST_LOG);
+  var ss = openSpreadsheet_();
+  if (!ss) return null;
+  return ss.getSheetByName(SHEET_POST_LOG) || ss.getSheetByName('CampaignLog');
 }
 
 function getCommentsSheet() {
-  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_COMMENTS);
+  var ss = openSpreadsheet_();
+  if (!ss) return null;
+  return ss.getSheetByName(SHEET_COMMENTS);
 }
 
 function ensureCommentsSheet() {
-  return ensureSheetWithHeaders(
-    SpreadsheetApp.getActiveSpreadsheet(),
-    SHEET_COMMENTS,
-    COMMENTS_LOG_HEADERS
-  ).sheet;
+  var ss = openSpreadsheet_();
+  if (!ss) throw new Error('Spreadsheet not linked. Open the sheet and run Setup.');
+  return ensureSheetWithHeaders(ss, SHEET_COMMENTS, COMMENTS_LOG_HEADERS).sheet;
 }
 
 function ensureSheetWithHeaders(ss, name, headers) {

@@ -103,13 +103,38 @@
         return d.innerHTML;
       }
 
-      function apiPost(body) {
-        return fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(body),
-          redirect: 'follow'
-        }).then(function (r) { return r.text(); });
+      function apiJsonp(params) {
+        return new Promise(function (resolve, reject) {
+          var cb = 'bpe_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+          var url = new URL(API_URL);
+          url.searchParams.set('api', 'json');
+          Object.keys(params).forEach(function (k) {
+            if (params[k] != null && params[k] !== '') {
+              url.searchParams.set(k, String(params[k]));
+            }
+          });
+          url.searchParams.set('callback', cb);
+          var timer = setTimeout(function () {
+            cleanup();
+            reject(new Error('Request timed out'));
+          }, 45000);
+          var script = document.createElement('script');
+          function cleanup() {
+            clearTimeout(timer);
+            delete window[cb];
+            if (script.parentNode) script.parentNode.removeChild(script);
+          }
+          window[cb] = function (data) {
+            cleanup();
+            resolve(data);
+          };
+          script.onerror = function () {
+            cleanup();
+            reject(new Error('Failed to fetch'));
+          };
+          script.src = url.toString();
+          document.head.appendChild(script);
+        });
       }
 
       var params = new URLSearchParams(window.location.search);
@@ -141,31 +166,24 @@
         return;
       }
 
-      apiPost(payload).then(function (text) {
-        var data;
-        try { data = JSON.parse(text); } catch (e) { data = null; }
-
-        if (text === 'SUCCESS' || (data && data.ok)) {
-          var info = data || { message: payload.cmd === 'confirm'
-            ? 'Your subscription is confirmed.'
-            : 'You have successfully unsubscribed.' };
+      apiJsonp(payload).then(function (data) {
+        if (data && data.ok) {
           document.getElementById('okTitle').textContent =
             payload.cmd === 'confirm' ? 'Subscription confirmed' : 'Unsubscribed';
           var el = document.getElementById('okMsg');
-          if (info.resubscribeUrl) {
-            el.innerHTML = esc(info.message || '') + ' <a href="' +
-              info.resubscribeUrl.replace(/"/g, '&quot;') + '">Subscribe again</a>';
+          if (data.resubscribeUrl) {
+            el.innerHTML = esc(data.message || '') + ' <a href="' +
+              data.resubscribeUrl.replace(/"/g, '&quot;') + '">Subscribe again</a>';
           } else {
-            el.textContent = info.message || 'Done.';
+            el.textContent = data.message || 'Done.';
           }
           show('sOk');
           return;
         }
 
-        var err = text.indexOf('ERROR:') === 0 ? text.slice(6).trim() :
-          (data && data.message) || text || 'Request failed.';
         show('sErr');
-        document.getElementById('errMsg').textContent = err;
+        document.getElementById('errMsg').textContent =
+          (data && data.message) || 'Request failed.';
       }).catch(function (e) {
         show('sErr');
         document.getElementById('errMsg').textContent =
