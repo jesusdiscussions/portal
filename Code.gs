@@ -5,6 +5,8 @@
 
 var SHEET_POST_LOG = 'PostLog';
 var SHEET_COMMENTS = 'CommentsLog';
+/** Short-lived rows for mail links (?go=TOKEN → GitHub Pages). Avoids Yahoo truncating long go.html?b=… URLs. */
+var SHEET_HANDOFF = '_MailHandoff';
 
 var HEADER_POST_ID = 'Post ID';
 var HEADER_STATUS = 'STATUS';
@@ -39,6 +41,8 @@ var COMMENTS_LOG_HEADERS = [
   'Comment ID', 'Parent ID', HEADER_POST_ID, 'Timestamp',
   'User Email', 'User Display Name', 'Comment Text'
 ];
+
+var HANDOFF_HEADERS = ['Token', 'TargetUrl', 'ExpiresISO'];
 
 var CMT = { ID: 0, PARENT: 1, POST: 2, TIME: 3, EMAIL: 4, NAME: 5, TEXT: 6 };
 
@@ -95,11 +99,14 @@ function setupSheets() {
   var ss = openSpreadsheet_();
   var postResult = ensureSheetWithHeaders(ss, SHEET_POST_LOG, POST_LOG_HEADERS);
   ensureSheetWithHeaders(ss, SHEET_COMMENTS, COMMENTS_LOG_HEADERS);
+  var handoffResult = ensureSheetWithHeaders(ss, SHEET_HANDOFF, HANDOFF_HEADERS);
   SpreadsheetApp.getUi().alert(
     'Blog Platform Engine sheets ready.\n\n' +
-    '• ' + SHEET_POST_LOG + (postResult.created ? ' (created)' : '') + '\n' +
-    '• ' + SHEET_COMMENTS + '\n\n' +
-    'Deploy this script as a web app with access set to Anyone (anonymous), then run Post Send & Sync.'
+      '• ' + SHEET_POST_LOG + (postResult.created ? ' (created)' : '') + '\n' +
+      '• ' + SHEET_COMMENTS + '\n' +
+      '• ' + SHEET_HANDOFF + (handoffResult.created ? ' (created)' : '') +
+      ' — short mail redirect tokens\n\n' +
+      'Deploy this script as a web app with access set to Anyone (anonymous), then run Post Send & Sync.'
   );
 }
 
@@ -425,16 +432,82 @@ function buildGitHubPageUrl(page, queryMap, hash) {
   return wrapMailClientHandoffUrl_(url);
 }
 
+function isPermittedHandoffTarget_(url) {
+  var s = String(url || '').trim();
+  if (!/^https:\/\//i.test(s)) return false;
+  var base = getGitHubPagesBaseUrl();
+  return s === base || s.indexOf(base + '/') === 0;
+}
+
+function ensureHandoffSheet_() {
+  var ss = openSpreadsheet_();
+  if (!ss) throw new Error('Spreadsheet not linked');
+  return ensureSheetWithHeaders(ss, SHEET_HANDOFF, HANDOFF_HEADERS).sheet;
+}
+
+function writeHandoffToken_(absoluteUrl) {
+  var sheet = ensureHandoffSheet_();
+  var token = Utilities.getUuid().replace(/-/g, '').slice(0, 22);
+  var exp = new Date(Date.now() + 30 * 86400000).toISOString();
+  sheet.appendRow([token, String(absoluteUrl), exp]);
+  return token;
+}
+
+function resolveHandoffToken_(token) {
+  var t = String(token || '').replace(/[^a-fA-F0-9]/g, '');
+  if (t.length < 16) return '';
+  var ss = openSpreadsheet_();
+  if (!ss) return '';
+  var sh = ss.getSheetByName(SHEET_HANDOFF);
+  if (!sh || sh.getLastRow() < 2) return '';
+  var last = sh.getLastRow();
+  var start = Math.max(2, last - 4000);
+  var rows = sh.getRange(start, 1, last, 3).getValues();
+  for (var i = rows.length - 1; i >= 0; i--) {
+    if (String(rows[i][0]) !== t) continue;
+    var rawExp = rows[i][2];
+    var expMs = rawExp ? new Date(rawExp).getTime() : 0;
+    if (expMs && Date.now() > expMs) return '';
+    var dest = String(rows[i][1] || '').trim();
+    if (!isPermittedHandoffTarget_(dest)) return '';
+    return dest;
+  }
+  return '';
+}
+
+function redirectHtml_(url) {
+  var u = String(url);
+  return HtmlService.createHtmlOutput(
+    '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+      '<meta http-equiv="refresh" content="0;url=' +
+      encodeURI(u) +
+      '">' +
+      '<script>window.location.replace(' +
+      JSON.stringify(u) +
+      ');\x3c/script></head><body style="font-family:system-ui,sans-serif;padding:1rem">Redirecting…</body></html>'
+  )
+    .setTitle('Redirect')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
 /**
- * Yahoo / in-app mail browsers often block JSONP and iframes to Apps Script.
- * Email links point to go.html?b=… which decodes and hands off to Safari / Chrome.
+ * Yahoo / in-app mail browsers often truncate long URLs in the message.
+ * Prefer a short /exec?go=TOKEN redirect (target stored on the spreadsheet).
+ * Falls back to go.html?b=… on the portal if the sheet is unavailable.
  */
 function wrapMailClientHandoffUrl_(absoluteUrl) {
   var s = String(absoluteUrl || '');
   if (!s || s.indexOf('/go.html') !== -1) return s;
-  var bytes = Utilities.newBlob(s, 'text/plain', 'UTF-8').getBytes();
-  var b64 = Utilities.base64Encode(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return getGitHubPagesBaseUrl() + '/go.html?b=' + encodeURIComponent(b64);
+  if (!isPermittedHandoffTarget_(s)) return s;
+  try {
+    var token = writeHandoffToken_(s);
+    return getWebAppUrl() + '?go=' + token;
+  } catch (err) {
+    Logger.log('wrapMailClientHandoffUrl_: ' + err.message);
+    var bytes = Utilities.newBlob(s, 'text/plain', 'UTF-8').getBytes();
+    var b64 = Utilities.base64Encode(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    return getGitHubPagesBaseUrl() + '/go.html?b=' + encodeURIComponent(b64);
+  }
 }
 
 function buildEmailFooter(webPostId, email, fname, lname, deadlineIso) {
@@ -544,6 +617,14 @@ function syncWebPostToGitHub(payload, isLaunch) {
 
 function doGet(e) {
   var params = (e && e.parameter) || {};
+  var goTok = String(params.go || '').trim().replace(/[^a-fA-F0-9]/g, '');
+  if (goTok.length >= 16) {
+    var dest = resolveHandoffToken_(goTok);
+    if (dest) return redirectHtml_(dest);
+    return textOut(
+      'This link expired or is invalid. Open the email on a computer, or ask the sender to re-send.'
+    );
+  }
   if (String(params.api || '').toLowerCase() === 'json') {
     var merged = mergeParams(params, {});
     var result = handleApiRequest(merged);

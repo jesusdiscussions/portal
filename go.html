@@ -8,42 +8,67 @@
     body {
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       margin: 0;
-      padding: 1.25rem 1rem 2rem;
+      padding: 1.25rem 1rem 2.5rem;
       background: #0f0f0f;
       color: #f1f1f1;
       text-align: center;
-      line-height: 1.45;
+      line-height: 1.5;
     }
-    h1 { font-size: 1.05rem; font-weight: 600; margin: 0 0 0.5rem; }
-    p { margin: 0.35rem 0; color: #aaa; font-size: 0.9rem; }
-    .actions { margin-top: 1.25rem; display: flex; flex-direction: column; align-items: center; gap: 0.65rem; }
+    h1 { font-size: 1.1rem; font-weight: 700; margin: 0 0 0.5rem; }
+    .warn {
+      background: #2a1f12;
+      border: 1px solid #ff9800;
+      color: #ffe0b2;
+      padding: 0.65rem 0.75rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      margin: 0 0 1rem;
+      text-align: left;
+      max-width: 28rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    p { margin: 0.4rem 0; color: #aaa; font-size: 0.88rem; }
+    .actions { margin-top: 1rem; display: flex; flex-direction: column; align-items: stretch; gap: 0.6rem; max-width: 22rem; margin-left: auto; margin-right: auto; }
     .btn {
-      display: inline-block;
-      padding: 0.65rem 1.25rem;
+      display: block;
+      padding: 0.75rem 1rem;
       font-size: 0.95rem;
       font-weight: 700;
-      border-radius: 999px;
+      border-radius: 12px;
       text-decoration: none;
+      text-align: center;
       border: none;
       cursor: pointer;
-      max-width: 100%;
     }
     .btn-primary { background: #3ea6ff; color: #0f0f0f; }
-    .btn-secondary { background: #303030; color: #eee; border: 1px solid #555; }
-    .target { word-break: break-all; font-size: 0.72rem; color: #666; margin-top: 1rem; }
+    .btn-secondary { background: #2a2a2a; color: #eee; border: 1px solid #555; }
+    .btn-muted { background: #1a1a1a; color: #888; border: 1px solid #333; font-size: 0.82rem; font-weight: 600; }
+    .target { word-break: break-all; font-size: 0.68rem; color: #555; margin-top: 1.25rem; text-align: left; max-width: 100%; }
   </style>
 </head>
 <body>
-  <h1>Continue outside the mail app</h1>
-  <p id="line1">Mail apps often block this page. Use the button below to open it in Safari or Chrome.</p>
+  <h1>Open outside the mail app</h1>
+  <p id="sub">Yahoo and other mail apps block this site until you continue in Safari or Chrome.</p>
+  <div class="warn" id="warnBox" hidden>
+    <strong>Do not use “Open (same app)” below</strong> — it only reloads inside the mail app and will look broken again. Use <strong>Open in Safari</strong>, <strong>Open via Google</strong>, or <strong>Copy link</strong> and paste into Safari/Chrome.
+  </div>
   <div class="actions">
-    <a id="safariLink" class="btn btn-primary" href="#" rel="noopener noreferrer">Open in Safari / Chrome</a>
-    <a id="plainLink" class="btn btn-secondary" href="#" target="_blank" rel="noopener noreferrer">Open (new tab)</a>
-    <button type="button" class="btn btn-secondary" id="copyBtn">Copy link</button>
+    <a id="safariLink" class="btn btn-primary" href="#">Open in Safari</a>
+    <a id="chromeIosLink" class="btn btn-secondary" href="#" hidden>Open in Chrome (iOS)</a>
+    <a id="googleHop" class="btn btn-secondary" href="#">Open via Google (recommended)</a>
+    <a id="plainLink" class="btn btn-muted" href="#" target="_blank" rel="noopener noreferrer">Try new tab (usually stays in mail app)</a>
+    <button type="button" class="btn btn-secondary" id="copyBtn">Copy link — paste in Safari / Chrome</button>
   </div>
   <p class="target" id="targetPreview" hidden></p>
   <script>
     (function () {
+      if (window.top !== window.self) {
+        try {
+          window.top.location.href = window.location.href;
+        } catch (e) { /* ignore */ }
+      }
+
       function qp(name) {
         try {
           return new URLSearchParams(window.location.search).get(name) || '';
@@ -71,95 +96,123 @@
         }
       }
 
+      function looksLikeTrappedMailClient() {
+        var ua = navigator.userAgent || '';
+        try {
+          var ref = document.referrer || '';
+          if (/mail\.yahoo|yahoo\.com\/d\/|ymail\.com|mail\.google|outlook\.live|outlook\.office/i.test(ref)) {
+            return true;
+          }
+        } catch (e) { /* ignore */ }
+        if (/YMail|YahooMobileMail|Yahoo\/.*Mail|YahooMail|yahoomail|YahooMobile|YahooApp|AOL/i.test(ua)) return true;
+        if (/Gmail|GoogleMail|Outlook-Express|Outlook-iOS|MSApp/i.test(ua)) return true;
+        if (/; wv\)|\bwv\)|WebView/i.test(ua)) return true;
+        if (/FBAN|FBAV|Instagram|Snapchat|Line\/|\bFB_IAB\b|Messenger/i.test(ua)) return true;
+        return false;
+      }
+
       var enc = qp('b') || qp('u') || '';
       if (!enc && window.location.hash.length > 2) {
         enc = window.location.hash.slice(1);
       }
       var target = fromWebSafeB64(enc);
+      if (target && !/^https?:\/\//i.test(target)) {
+        try {
+          var baseDir = new URL('./', window.location.href);
+          target = new URL(String(target).replace(/^\//, ''), baseDir).href;
+        } catch (e) {
+          target = '';
+        }
+      }
 
       var safariLink = document.getElementById('safariLink');
+      var chromeIosLink = document.getElementById('chromeIosLink');
+      var googleHop = document.getElementById('googleHop');
       var plainLink = document.getElementById('plainLink');
       var copyBtn = document.getElementById('copyBtn');
       var preview = document.getElementById('targetPreview');
+      var warnBox = document.getElementById('warnBox');
 
       if (!target || !/^https?:\/\//i.test(target)) {
-        document.getElementById('line1').textContent =
-          'This link is invalid or incomplete. Open the message again from your email.';
+        document.getElementById('sub').innerHTML =
+          '<strong>Bad or truncated link.</strong> Ask the sender to re-send, or open the message on a computer. ' +
+          'If you use GitHub Pages in a subfolder, set <code>GITHUB_PAGES_BASE_URL</code> in Apps Script to that full folder URL (including <code>/portal</code>).';
         safariLink.style.display = 'none';
+        chromeIosLink.style.display = 'none';
+        googleHop.style.display = 'none';
+        plainLink.style.display = 'none';
+        copyBtn.style.display = 'none';
+        return;
+      }
+
+      if (target.indexOf('/go.html') !== -1) {
+        document.getElementById('sub').textContent =
+          'Redirect target looks like this handoff page (loop). Fix the link in the spreadsheet / email template.';
+        safariLink.style.display = 'none';
+        chromeIosLink.style.display = 'none';
+        googleHop.style.display = 'none';
         plainLink.style.display = 'none';
         copyBtn.style.display = 'none';
         return;
       }
 
       plainLink.href = target;
+      googleHop.href = 'https://www.google.com/url?q=' + encodeURIComponent(target);
 
       var isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
       var isAndroid = /Android/i.test(navigator.userAgent);
+      var trapped = looksLikeTrappedMailClient();
+
+      if (trapped) {
+        warnBox.hidden = false;
+      }
 
       if (isIOS) {
         safariLink.href = 'x-safari-' + target;
-        safariLink.textContent = 'Open in Safari';
+        safariLink.textContent = 'Open in Safari (tap here)';
+        var chromeUrl = 'googlechrome://open-url?url=' + encodeURIComponent(target);
+        chromeIosLink.href = chromeUrl;
+        chromeIosLink.hidden = false;
+        chromeIosLink.textContent = 'Open in Google Chrome (iOS app)';
       } else if (isAndroid) {
-        safariLink.href = '#';
-        safariLink.addEventListener('click', function (e) {
-          e.preventDefault();
-          tryAndroidIntent();
-        });
-        safariLink.textContent = 'Open in Chrome';
+        var rest = target.replace(/^https:\/\//i, '');
+        safariLink.href =
+          'intent://' +
+          rest +
+          '#Intent;scheme=https;action=android.intent.action.VIEW;S.browser_fallback_url=' +
+          encodeURIComponent(target) +
+          ';end';
+        safariLink.textContent = 'Open in Chrome / browser (tap here)';
+        chromeIosLink.style.display = 'none';
       } else {
         safariLink.href = target;
-        safariLink.target = '_blank';
+        safariLink.target = '_self';
         safariLink.rel = 'noopener noreferrer';
-        safariLink.textContent = 'Open in browser';
+        safariLink.textContent = 'Continue in this browser';
+        chromeIosLink.style.display = 'none';
       }
 
       preview.textContent = target;
       preview.hidden = false;
 
-      function tryAndroidIntent() {
-        if (!/Android/i.test(navigator.userAgent)) return false;
-        try {
-          var rest = target.replace(/^https:\/\//i, '');
-          var intent =
-            'intent://' +
-            rest +
-            '#Intent;scheme=https;action=android.intent.action.VIEW;S.browser_fallback_url=' +
-            encodeURIComponent(target) +
-            ';end';
-          window.location.replace(intent);
-          return true;
-        } catch (e) {
-          return false;
-        }
+      if (!trapped && !isIOS && !isAndroid) {
+        window.location.replace(target);
+        return;
       }
 
-      function autoLeave() {
-        if (/iPad|iPhone|iPod/i.test(navigator.userAgent)) {
-          try {
-            window.location.replace('x-safari-' + target);
-            return;
-          } catch (e) { /* continue */ }
-        }
-        if (tryAndroidIntent()) return;
+      if (!trapped && isIOS) {
         try {
-          window.location.replace(target);
-        } catch (e2) {
-          /* user will tap a button */
-        }
+          window.location.replace('x-safari-' + target);
+        } catch (e) { /* user taps Safari link */ }
+        return;
       }
-
-      autoLeave();
 
       copyBtn.addEventListener('click', function () {
+        function done() {
+          copyBtn.textContent = 'Copied — switch to Safari/Chrome and paste in the address bar';
+        }
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(target).then(
-            function () {
-              copyBtn.textContent = 'Copied!';
-            },
-            function () {
-              fallbackCopy();
-            }
-          );
+          navigator.clipboard.writeText(target).then(done, fallbackCopy);
         } else {
           fallbackCopy();
         }
@@ -173,9 +226,9 @@
           ta.select();
           try {
             document.execCommand('copy');
-            copyBtn.textContent = 'Copied!';
+            done();
           } catch (e) {
-            copyBtn.textContent = 'Select the URL above manually';
+            copyBtn.textContent = 'Long-press the gray URL below → Copy';
           }
           document.body.removeChild(ta);
         }
