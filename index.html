@@ -3,11 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-<<<<<<< HEAD
   <title>Post</title>
-=======
-  <title>Campaign</title>
->>>>>>> 34c35752edd22d38c64028207a3ecbb03df1a1cb
   <style>
     :root {
       --bg: #f6f7f9;
@@ -124,7 +120,6 @@
 
       /**
        * Comment portal lives on CommentsPage.html (avoids Apps Script multi-account bug).
-<<<<<<< HEAD
        * Forwards post, email, fname, lname, deadline — drops action (not needed there).
        */
       if (rawAction === 'comments') {
@@ -132,13 +127,6 @@
         var postVal = params.get('post') || params.get('camp');
         if (postVal) forward.set('post', postVal);
         ['email', 'fname', 'lname', 'deadline'].forEach(function (key) {
-=======
-       * Forwards camp, email, fname, lname, deadline — drops action (not needed there).
-       */
-      if (rawAction === 'comments') {
-        var forward = new URLSearchParams();
-        ['camp', 'email', 'fname', 'lname', 'deadline'].forEach(function (key) {
->>>>>>> 34c35752edd22d38c64028207a3ecbb03df1a1cb
           var val = params.get(key);
           if (val) forward.set(key, val);
         });
@@ -149,11 +137,7 @@
 
       var payload = {
         action: rawAction,
-<<<<<<< HEAD
         post: (params.get('post') || params.get('camp') || '').trim(),
-=======
-        camp: (params.get('camp') || '').trim(),
->>>>>>> 34c35752edd22d38c64028207a3ecbb03df1a1cb
         email: (params.get('email') || '').trim(),
         fname: (params.get('fname') || '').trim(),
         lname: (params.get('lname') || '').trim()
@@ -208,13 +192,8 @@
         showError('Missing action parameter. Use confirm or unsub.');
         return;
       }
-<<<<<<< HEAD
       if (!payload.post) {
         showError('Missing post (Post ID) parameter.');
-=======
-      if (!payload.camp) {
-        showError('Missing camp (campaign ID) parameter.');
->>>>>>> 34c35752edd22d38c64028207a3ecbb03df1a1cb
         return;
       }
       if (!payload.email) {
@@ -235,11 +214,7 @@
           }
         })
         .catch(function (e) {
-<<<<<<< HEAD
           showError('Could not reach the post service. ' + (e.message || ''));
-=======
-          showError('Could not reach the campaign service. ' + (e.message || ''));
->>>>>>> 34c35752edd22d38c64028207a3ecbb03df1a1cb
         });
     })();
   </script>
