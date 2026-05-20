@@ -1,10 +1,18 @@
 /**
- * Blog Platform Engine — silent /exec API + spreadsheet automation.
- * User-facing UI lives on GitHub Pages only.
+ * Blog Platform Engine — V2 (Phase 1: schema, User IDs, migration).
+ * Spreadsheet = database; GitHub Pages = public UI; Worker = Phase 2+.
  */
 
 var SHEET_POST_LOG = 'PostLog';
+var SHEET_PAGE_CONTENT = 'PageContent';
+var SHEET_EMAIL_QUEUE = 'EmailQueue';
+var SHEET_ACTION_TOKENS = 'ActionTokens';
 var SHEET_COMMENTS = 'CommentsLog';
+/** Never delete or overwrite during setup/migration. */
+var SHEET_NOTES_WHITELIST = 'Notes';
+
+var USER_ID_START = 1000;
+var PROP_NEXT_USER_ID = 'NEXT_USER_ID';
 
 var HEADER_POST_ID = 'Post ID';
 var HEADER_STATUS = 'STATUS';
@@ -40,6 +48,30 @@ var COMMENTS_LOG_HEADERS = [
   'User Email', 'User Display Name', 'Comment Text'
 ];
 
+var PAGE_CONTENT_HEADERS = [
+  'Post ID', 'Live', 'Page Headline', 'Page Body HTML', 'Google Drive File IDs',
+  'Comments Duration Open', 'Discussion Start At', 'Force Closed', 'Last Updated', 'Publish Version'
+];
+
+var EMAIL_QUEUE_HEADERS = [
+  'User ID', 'Post ID', 'Email Address', 'First Name', 'Last Name', 'STATUS',
+  'Email Subject', 'Email Body', 'Send?', 'Sent Timestamp'
+];
+
+var ACTION_TOKEN_HEADERS = [
+  'Token', 'Post ID', 'Email Address', 'Action', 'Expires At', 'Used'
+];
+
+var PC = {
+  POST: 0, LIVE: 1, HEADLINE: 2, BODY: 3, FILES: 4, DAYS: 5, START: 6,
+  FORCE: 7, UPDATED: 8, VERSION: 9
+};
+
+var EQ = {
+  UID: 0, POST: 1, EMAIL: 2, FIRST: 3, LAST: 4, STATUS: 5,
+  SUBJECT: 6, BODY: 7, SEND: 8, SENT: 9
+};
+
 var CMT = { ID: 0, PARENT: 1, POST: 2, TIME: 3, EMAIL: 4, NAME: 5, TEXT: 6 };
 
 // ——— Menu ———
@@ -48,11 +80,14 @@ function onOpen() {
   rememberSpreadsheetId_();
   SpreadsheetApp.getUi()
     .createMenu('Blog Platform Engine')
-    .addItem('Setup sheets (one-shot)', 'setupSheets')
+    .addItem('Setup V2 sheets (one-shot)', 'setupV2Sheets')
+    .addItem('Migrate PostLog → V2…', 'migratePostLogToV2')
+    .addItem('Assign missing User IDs', 'assignMissingUserIds')
+    .addSeparator()
     .addItem('Set GitHub Pages base URL…', 'promptGitHubPagesUrl')
     .addItem('Test API (open in browser)…', 'openApiTestLink')
     .addSeparator()
-    .addItem('Run Post Send & Sync', 'runPostEngine')
+    .addItem('Run Post Send & Sync (legacy)', 'runPostEngine')
     .addToUi();
 }
 
@@ -90,17 +125,274 @@ function promptGitHubPagesUrl() {
   ui.alert('Saved:\n' + url);
 }
 
+/** @deprecated Use setupV2Sheets */
 function setupSheets() {
+  setupV2Sheets();
+}
+
+function setupV2Sheets() {
   rememberSpreadsheetId_();
   var ss = openSpreadsheet_();
-  var postResult = ensureSheetWithHeaders(ss, SHEET_POST_LOG, POST_LOG_HEADERS);
-  ensureSheetWithHeaders(ss, SHEET_COMMENTS, COMMENTS_LOG_HEADERS);
+  if (!ss) {
+    SpreadsheetApp.getUi().alert('Open the spreadsheet bound to this project first.');
+    return;
+  }
+  var results = ensureV2Schema_(ss, {});
+  initUserIdSequenceFromSheet_();
   SpreadsheetApp.getUi().alert(
-    'Blog Platform Engine sheets ready.\n\n' +
-      '• ' + SHEET_POST_LOG + (postResult.created ? ' (created)' : '') + '\n' +
-      '• ' + SHEET_COMMENTS + '\n\n' +
-      'Deploy this script as a web app with access set to Anyone (anonymous), then run Post Send & Sync.'
+    'Blog Platform Engine V2 sheets ready.\n\n' +
+      results.join('\n') +
+      '\n\nNotes tab: left unchanged.\n' +
+      'Next: run "Migrate PostLog → V2" if you have data in PostLog.\n' +
+      'User IDs start at ' + USER_ID_START + ' (menu: Assign missing User IDs).'
   );
+}
+
+// ——— V2 schema, User IDs, migration ———
+
+function isWhitelistedSheet_(name) {
+  return String(name || '').trim() === SHEET_NOTES_WHITELIST;
+}
+
+function ensureV2Schema_(ss, opts) {
+  opts = opts || {};
+  var clearTabs = opts.clearTabs || {};
+  var lines = [];
+  var tabs = [
+    { name: SHEET_PAGE_CONTENT, headers: PAGE_CONTENT_HEADERS },
+    { name: SHEET_EMAIL_QUEUE, headers: EMAIL_QUEUE_HEADERS },
+    { name: SHEET_ACTION_TOKENS, headers: ACTION_TOKEN_HEADERS },
+    { name: SHEET_COMMENTS, headers: COMMENTS_LOG_HEADERS }
+  ];
+  for (var i = 0; i < tabs.length; i++) {
+    var t = tabs[i];
+    var r = ensureSheetWithHeaders(ss, t.name, t.headers, !!clearTabs[t.name]);
+    lines.push('• ' + t.name + (r.created ? ' (created)' : r.headersReset ? ' (headers reset)' : ''));
+  }
+  if (ss.getSheetByName(SHEET_NOTES_WHITELIST)) {
+    lines.push('• ' + SHEET_NOTES_WHITELIST + ' (preserved)');
+  }
+  return lines;
+}
+
+function getPageContentSheet() {
+  var ss = openSpreadsheet_();
+  if (!ss) return null;
+  return ss.getSheetByName(SHEET_PAGE_CONTENT);
+}
+
+function getEmailQueueSheet() {
+  var ss = openSpreadsheet_();
+  if (!ss) return null;
+  return ss.getSheetByName(SHEET_EMAIL_QUEUE);
+}
+
+function getActionTokensSheet() {
+  var ss = openSpreadsheet_();
+  if (!ss) return null;
+  return ss.getSheetByName(SHEET_ACTION_TOKENS);
+}
+
+function initUserIdSequenceFromSheet_() {
+  var props = PropertiesService.getScriptProperties();
+  var sheet = getEmailQueueSheet();
+  var max = USER_ID_START - 1;
+  if (sheet && sheet.getLastRow() >= 2) {
+    var vals = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      var n = parseInt(String(vals[i][0] || '').replace(/\D/g, ''), 10);
+      if (!isNaN(n) && n > max) max = n;
+    }
+  }
+  var next = Math.max(USER_ID_START, max + 1);
+  props.setProperty(PROP_NEXT_USER_ID, String(next));
+  return next;
+}
+
+function allocateUserIds_(count) {
+  var props = PropertiesService.getScriptProperties();
+  var next = parseInt(props.getProperty(PROP_NEXT_USER_ID) || '', 10);
+  if (isNaN(next) || next < USER_ID_START) next = initUserIdSequenceFromSheet_();
+  var out = [];
+  for (var i = 0; i < count; i++) {
+    out.push(String(next));
+    next++;
+  }
+  props.setProperty(PROP_NEXT_USER_ID, String(next));
+  return out;
+}
+
+function assignMissingUserIds() {
+  rememberSpreadsheetId_();
+  var sheet = getEmailQueueSheet();
+  if (!sheet) {
+    SpreadsheetApp.getUi().alert('Run "Setup V2 sheets" first.');
+    return;
+  }
+  initUserIdSequenceFromSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    SpreadsheetApp.getUi().alert('EmailQueue has no data rows.');
+    return;
+  }
+  var uids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  var need = 0;
+  for (var i = 0; i < uids.length; i++) {
+    if (!String(uids[i][0] || '').trim()) need++;
+  }
+  if (!need) {
+    SpreadsheetApp.getUi().alert('Every EmailQueue row already has a User ID.');
+    return;
+  }
+  var newIds = allocateUserIds_(need);
+  var idx = 0;
+  for (var r = 0; r < uids.length; r++) {
+    if (!String(uids[r][0] || '').trim()) {
+      sheet.getRange(r + 2, 1).setValue(newIds[idx++]);
+    }
+  }
+  SpreadsheetApp.getUi().alert('Assigned ' + need + ' User ID(s). Next available: ' + propsNextUserId_());
+}
+
+function propsNextUserId_() {
+  return PropertiesService.getScriptProperties().getProperty(PROP_NEXT_USER_ID) || String(USER_ID_START);
+}
+
+function migratePostLogToV2() {
+  rememberSpreadsheetId_();
+  var ui = SpreadsheetApp.getUi();
+  var ss = openSpreadsheet_();
+  if (!ss) {
+    ui.alert('Open the spreadsheet bound to this project first.');
+    return;
+  }
+  var legacy = getPostLogSheet();
+  if (!legacy || legacy.getLastRow() < 2) {
+    ui.alert('No PostLog (or CampaignLog) data found to migrate. V2 sheets will still be created.');
+    ensureV2Schema_(ss, {});
+    return;
+  }
+
+  var confirm = ui.alert(
+    'Migrate to V2',
+    'This will:\n' +
+      '• Copy master rows → PageContent\n' +
+      '• Copy subscriber rows → EmailQueue (new User IDs from ' + USER_ID_START + ')\n' +
+      '• Delete the PostLog / CampaignLog tab\n' +
+      '• Leave the Notes tab untouched\n\n' +
+      'Continue?',
+    ui.ButtonSet.YES_NO
+  );
+  if (confirm !== ui.Button.YES) return;
+
+  var lastRow = legacy.getLastRow();
+  var lastCol = Math.max(legacy.getLastColumn(), POST_LOG_HEADERS.length);
+  var headers = legacy.getRange(1, 1, 1, lastCol).getValues()[0];
+  var colMap = buildColumnMap(headers);
+  var clusters = buildPostClusters(legacy, headers, lastRow, lastCol);
+
+  ensureV2Schema_(ss, {
+    clearTabs: {}
+  });
+  ensureSheetWithHeaders(ss, SHEET_PAGE_CONTENT, PAGE_CONTENT_HEADERS, true);
+  ensureSheetWithHeaders(ss, SHEET_EMAIL_QUEUE, EMAIL_QUEUE_HEADERS, true);
+  ensureSheetWithHeaders(ss, SHEET_ACTION_TOKENS, ACTION_TOKEN_HEADERS, false);
+  ensureSheetWithHeaders(ss, SHEET_COMMENTS, COMMENTS_LOG_HEADERS, false);
+  initUserIdSequenceFromSheet_();
+
+  var pageSheet = getPageContentSheet();
+  var emailSheet = getEmailQueueSheet();
+  var pageByWebId = {};
+  var emailRows = [];
+  var skipped = [];
+  var postCol = colIndex(colMap, HEADER_POST_ID, 0);
+  var firstCol = colIndex(colMap, HEADER_FIRST, 4);
+  var lastColIdx = colIndex(colMap, HEADER_LAST, 5);
+  var subjectCol = colIndex(colMap, HEADER_SUBJECT, 7);
+  var messageCol = colIndex(colMap, HEADER_MESSAGE, 8);
+  var fileCol = colIndex(colMap, HEADER_FILE_IDS, 9);
+  var daysCol = colIndex(colMap, HEADER_DAYS_OPEN, 3);
+  var sentCol = colIndex(colMap, HEADER_SENT, 2);
+  var statusCol = colIndex(colMap, HEADER_STATUS, 1);
+  var emailCol = colIndex(colMap, HEADER_EMAIL, 6);
+
+  for (var c = 0; c < clusters.length; c++) {
+    var cluster = clusters[c];
+    var master = cluster.master;
+    var rowNum = cluster.masterSheetRow;
+    var first = String(master[firstCol] || '').trim();
+    if (first.toLowerCase() !== MASTER_MARKER) {
+      skipped.push('Row ' + rowNum + ' (Post ID "' + cluster.postId + '"): missing master blueprint');
+      continue;
+    }
+    var routing = getRouting(master, colMap);
+    var templateSubject = String(master[subjectCol] || '').trim();
+    var templateBody = String(master[messageCol] || '');
+    var templateFiles = String(master[fileCol] || '').trim();
+    var daysOpen = master[daysCol];
+    var now = new Date();
+
+    pageByWebId[routing.webPostId] = [
+      routing.webPostId,
+      'Y',
+      templateSubject,
+      templateBody,
+      templateFiles,
+      daysOpen === '' || daysOpen == null ? '' : daysOpen,
+      '',
+      'N',
+      now,
+      1
+    ];
+
+    for (var i = 0; i < cluster.rows.length; i++) {
+      var row = cluster.rows[i].row;
+      if (!isSubscriberRow(row, colMap)) continue;
+      emailRows.push([
+        '',
+        String(row[postCol] || '').trim() || cluster.postId,
+        String(row[emailCol] || '').trim(),
+        String(row[firstCol] || '').trim(),
+        String(row[lastColIdx] || '').trim(),
+        String(row[statusCol] || '').trim() || STATUS_SUBSCRIBED,
+        templateSubject,
+        templateBody,
+        'N',
+        formatTs(row[sentCol])
+      ]);
+    }
+  }
+
+  var pageKeys = Object.keys(pageByWebId);
+  var pageRows = [];
+  for (var pk = 0; pk < pageKeys.length; pk++) pageRows.push(pageByWebId[pageKeys[pk]]);
+  if (pageRows.length) {
+    pageSheet.getRange(2, 1, pageRows.length + 1, PAGE_CONTENT_HEADERS.length).setValues(pageRows);
+  }
+  if (emailRows.length) {
+    var ids = allocateUserIds_(emailRows.length);
+    for (var e = 0; e < emailRows.length; e++) {
+      emailRows[e][EQ.UID] = ids[e];
+    }
+    emailSheet.getRange(2, 1, emailRows.length + 1, EMAIL_QUEUE_HEADERS.length).setValues(emailRows);
+  }
+
+  var legacyName = legacy.getName();
+  if (!isWhitelistedSheet_(legacyName)) {
+    ss.deleteSheet(legacy);
+  }
+
+  var summary =
+    'V2 migration complete.\n\n' +
+    '• PageContent rows: ' + pageRows.length + '\n' +
+    '• EmailQueue rows: ' + emailRows.length + ' (User IDs assigned)\n' +
+    '• Removed tab: ' + legacyName + '\n' +
+    '• Notes tab: preserved\n' +
+    '• Next User ID: ' + propsNextUserId_();
+  if (skipped.length) {
+    summary += '\n\nSkipped clusters:\n' + skipped.join('\n');
+  }
+  ui.alert(summary);
 }
 
 // ——— Post engine ———
@@ -109,7 +401,10 @@ function runPostEngine() {
   rememberSpreadsheetId_();
   var sheet = getPostLogSheet();
   if (!sheet) {
-    SpreadsheetApp.getUi().alert('Missing sheet: "' + SHEET_POST_LOG + '".');
+    SpreadsheetApp.getUi().alert(
+      'Legacy PostLog is not present (V2 migration may have removed it).\n\n' +
+        'V2 batch email send ships in Phase 2. Use EmailQueue + PageContent for now.'
+    );
     return;
   }
   var lastRow = sheet.getLastRow();
@@ -939,20 +1234,40 @@ function ensureCommentsSheet() {
   return ensureSheetWithHeaders(ss, SHEET_COMMENTS, COMMENTS_LOG_HEADERS).sheet;
 }
 
-function ensureSheetWithHeaders(ss, name, headers) {
+function ensureSheetWithHeaders(ss, name, headers, resetBody) {
+  if (isWhitelistedSheet_(name)) {
+    var existing = ss.getSheetByName(name);
+    return { sheet: existing, created: false, headersReset: false };
+  }
   var sheet = ss.getSheetByName(name);
   var created = false;
   if (!sheet) {
     sheet = ss.insertSheet(name);
     created = true;
   }
-  if (created || !sheet.getRange(1, 1).getValue()) {
+  var headerMismatch = sheet.getLastColumn() < headers.length;
+  if (!created && sheet.getLastRow() >= 1) {
+    var current = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), headers.length)).getValues()[0];
+    for (var h = 0; h < headers.length; h++) {
+      if (String(current[h] || '').trim() !== headers[h]) {
+        headerMismatch = true;
+        break;
+      }
+    }
+  }
+  if (created || !sheet.getRange(1, 1).getValue() || headerMismatch) {
+    if (resetBody && sheet.getMaxRows() > 1) {
+      var lr = Math.max(sheet.getLastRow(), 2);
+      if (lr > 1) {
+        sheet.getRange(2, 1, lr - 1, headers.length).clearContent();
+      }
+    }
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#f3f3f3');
     sheet.setFrozenRows(1);
     sheet.autoResizeColumns(1, headers.length);
   }
-  return { sheet: sheet, created: created };
+  return { sheet: sheet, created: created, headersReset: headerMismatch && !created };
 }
 
 function parseDate(val) {
