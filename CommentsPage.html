@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <base target="_top">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Post — Community</title>
@@ -12,304 +11,139 @@
       --surface-2: #303030;
       --border: #3f3f3f;
       --text: #f1f1f1;
-      --muted: #aaaaaa;
+      --muted: #aaa;
       --accent: #3ea6ff;
       --banner-h: 56px;
-      --anchor-inset: 192px;
     }
-
     * { box-sizing: border-box; }
-
     body {
       margin: 0;
       padding-top: var(--banner-h);
-      font-family: "Roboto", "Segoe UI", system-ui, sans-serif;
+      font-family: Roboto, "Segoe UI", system-ui, sans-serif;
       background: var(--bg);
       color: var(--text);
       line-height: 1.45;
     }
-
     .hidden { display: none !important; }
 
     .countdown-banner {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 1000;
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
       height: var(--banner-h);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 1rem;
+      display: flex; align-items: center; justify-content: center; gap: 1rem;
       background: #1a3a5c;
       border-bottom: 1px solid var(--border);
       font-variant-numeric: tabular-nums;
     }
-
     .countdown-banner.closed { background: #4a4a4a; }
-
-    .countdown-banner .label {
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-    }
-
-    .countdown-units {
-      display: flex;
-      gap: 0.65rem;
-      font-weight: 700;
-      font-size: 1rem;
-    }
-
-    .countdown-units span {
-      display: inline-flex;
-      flex-direction: column;
-      align-items: center;
-      min-width: 2.5rem;
-    }
-
-    .countdown-units em {
-      font-style: normal;
-      font-size: 0.65rem;
-      font-weight: 500;
-      color: var(--muted);
-    }
-
+    .countdown-banner .label { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .countdown-units { display: flex; gap: .65rem; font-weight: 700; }
+    .countdown-units span { display: inline-flex; flex-direction: column; align-items: center; min-width: 2.5rem; }
+    .countdown-units em { font-style: normal; font-size: .65rem; font-weight: 500; color: var(--muted); }
     .countdown-banner.closed .countdown-units { display: none; }
-    .countdown-banner .closed-msg { display: none; font-weight: 700; letter-spacing: 0.06em; }
+    .countdown-banner .closed-msg { display: none; font-weight: 700; letter-spacing: .06em; }
     .countdown-banner.closed .closed-msg { display: block; }
 
-    .wrap {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 1rem 1rem 3rem;
-    }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 1rem 1rem 3rem; }
+    .page-title { font-size: 1.35rem; font-weight: 500; margin: 0 0 1rem; }
 
-    .page-title {
-      font-size: 1.25rem;
-      font-weight: 500;
-      margin: 0 0 0.25rem;
-    }
-
-    .page-sub {
-      color: var(--muted);
-      font-size: 0.85rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .email-featured { margin-bottom: 1.5rem; }
-
-    .email-featured h2 {
-      font-size: 0.8rem;
-      font-weight: 500;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin: 0 0 0.5rem;
-    }
-
-    .email-subject {
-      font-size: 1.1rem;
-      font-weight: 600;
-      margin-bottom: 0.75rem;
-    }
-
-    .email-content-full {
+    .content-block { margin-bottom: 1.5rem; }
+    .content-block .subject { font-size: 1.15rem; font-weight: 600; margin-bottom: .75rem; }
+    .content-body {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 1rem 1.15rem 1.25rem;
+      padding: 1rem 1.15rem;
     }
-
-    #email-focus-anchor {
-      display: block;
-      height: 0;
-      margin-top: var(--anchor-inset);
-      scroll-margin-top: calc(var(--banner-h) + 12px);
-      pointer-events: none;
-    }
-
-    .email-body {
-      font-size: 0.92rem;
-      line-height: 1.55;
-      word-break: break-word;
-    }
-
-    .email-body img { max-width: 100%; height: auto; }
-
-    .attachments {
-      margin-top: 1rem;
-      padding-top: 0.85rem;
-      border-top: 1px solid var(--border);
-    }
-
-    .attachments ul {
-      list-style: none;
-      margin: 0.4rem 0 0;
-      padding: 0;
-    }
-
-    .attachments a {
-      color: var(--accent);
-      text-decoration: none;
-    }
-
+    .content-body img { max-width: 100%; height: auto; }
+    .attachments { margin-top: 1rem; padding-top: .85rem; border-top: 1px solid var(--border); }
+    .attachments ul { list-style: none; margin: .4rem 0 0; padding: 0; }
+    .attachments a { color: var(--accent); text-decoration: none; }
     .attachments a:hover { text-decoration: underline; }
 
-    #comments-section {
+    #join-comments {
+      display: block;
+      height: 0;
       scroll-margin-top: calc(var(--banner-h) + 12px);
     }
+    #comments-section { scroll-margin-top: calc(var(--banner-h) + 12px); }
 
     .composer {
-      display: flex;
-      gap: 0.75rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .composer.locked { opacity: 0.45; pointer-events: none; }
-
-    .avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: var(--surface-2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 600;
-      font-size: 0.85rem;
-      color: var(--accent);
-      flex-shrink: 0;
-    }
-
-    .composer-main { flex: 1; min-width: 0; }
-
-    .composer-label {
-      font-size: 0.78rem;
-      color: var(--muted);
-      margin-bottom: 0.35rem;
-    }
-
-    .composer textarea {
-      width: 100%;
-      min-height: 88px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .composer.locked { opacity: .45; pointer-events: none; }
+    .composer label { display: block; font-size: .78rem; color: var(--muted); margin-bottom: .25rem; }
+    .composer input, .composer textarea {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
       color: var(--text);
-      padding: 0.65rem 0.75rem;
+      padding: .5rem .65rem;
       font: inherit;
-      resize: vertical;
+      margin-bottom: .65rem;
     }
-
-    .composer textarea:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-
-    .form-actions {
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 0.5rem;
-    }
-
+    .composer textarea { min-height: 88px; resize: vertical; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; }
+    @media (max-width: 560px) { .form-row { grid-template-columns: 1fr; } }
     .btn-primary {
       background: var(--accent);
       color: #0f0f0f;
       border: none;
       border-radius: 18px;
-      padding: 0.5rem 1.1rem;
+      padding: .5rem 1.1rem;
       font: inherit;
       font-weight: 600;
       cursor: pointer;
     }
-
-    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    .btn-ghost {
-      background: transparent;
-      border: none;
-      color: var(--muted);
-      font: inherit;
-      cursor: pointer;
-      margin-right: 0.5rem;
-    }
-
-    .status-msg {
-      font-size: 0.8rem;
-      margin-top: 0.45rem;
-      min-height: 1rem;
-    }
-
+    .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+    .status-msg { font-size: .8rem; min-height: 1rem; margin-top: .35rem; }
     .status-msg.ok { color: #6adb8a; }
     .status-msg.err { color: #ff6b6b; }
 
-    .comment-thread {
-      display: flex;
-      gap: 0.75rem;
-      margin-bottom: 1.25rem;
+    .feed-title { font-size: 1rem; font-weight: 600; margin: 0 0 1rem; }
+    .empty-feed { color: var(--muted); font-style: italic; }
+
+    /* YouTube-style tree */
+    .tree-node { margin-bottom: .85rem; }
+    .tree-node .meta { font-size: .78rem; color: var(--muted); margin-bottom: .15rem; }
+    .tree-node .meta strong { color: var(--text); font-size: .82rem; }
+    .tree-node .text { font-size: .9rem; white-space: pre-wrap; word-break: break-word; }
+    .tree-children { margin-left: 2rem; border-left: 2px solid var(--border); padding-left: .75rem; }
+    .reply-btn {
+      background: none; border: none; color: var(--muted);
+      font-size: .78rem; font-weight: 600; cursor: pointer; padding: .3rem 0;
+    }
+    .reply-btn:hover { color: var(--text); }
+    .reply-panel { display: none; margin-top: .5rem; }
+    .reply-panel.open { display: block; }
+    .reply-panel textarea {
+      width: 100%; min-height: 72px;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); padding: .5rem; font: inherit;
     }
 
-    .comment-main { flex: 1; min-width: 0; }
-
-    .comment-header {
-      display: flex;
-      align-items: baseline;
-      gap: 0.5rem;
-      margin-bottom: 0.2rem;
-    }
-
-    .comment-author { font-size: 0.82rem; font-weight: 600; }
-    .comment-time { font-size: 0.75rem; color: var(--muted); }
-
-    .comment-text {
-      font-size: 0.9rem;
+    /* 2-way texting bubbles */
+    .chat-segment { margin: 1rem 0; }
+    .chat-row { display: flex; margin-bottom: .5rem; }
+    .chat-row.left { justify-content: flex-start; }
+    .chat-row.right { justify-content: flex-end; }
+    .bubble {
+      max-width: 78%;
+      padding: .55rem .75rem;
+      border-radius: 14px;
+      font-size: .88rem;
       white-space: pre-wrap;
       word-break: break-word;
     }
+    .chat-row.left .bubble { background: var(--surface-2); border-bottom-left-radius: 4px; }
+    .chat-row.right .bubble { background: #264d73; border-bottom-right-radius: 4px; }
+    .bubble-meta { font-size: .68rem; color: var(--muted); margin-bottom: .2rem; }
 
-    .reply-link {
-      background: none;
-      border: none;
-      color: var(--muted);
-      font-size: 0.78rem;
-      font-weight: 600;
-      padding: 0.35rem 0;
-      cursor: pointer;
-    }
-
-    .reply-link:hover { color: var(--text); }
-
-    .reply-form-panel { display: none; margin-top: 0.5rem; }
-    .reply-form-panel.open { display: block; }
-
-    .reply-form-panel textarea {
-      width: 100%;
-      min-height: 72px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      padding: 0.55rem 0.65rem;
-      font: inherit;
-    }
-
-    .replies { margin-top: 0.75rem; }
-    .replies .comment-thread { margin-bottom: 1rem; }
-
-    .empty-feed {
-      color: var(--muted);
-      font-style: italic;
-      padding: 0.5rem 0;
-    }
-
-    .load-state, .fatal-error {
-      text-align: center;
-      padding: 3rem 1rem;
-    }
-
+    .load-state, .fatal-error { text-align: center; padding: 3rem 1rem; }
     .fatal-error { color: #ff6b6b; }
   </style>
 </head>
@@ -321,19 +155,16 @@
   </header>
 
   <div class="wrap">
-    <div id="loadState" class="load-state">Loading community portal…</div>
+    <div id="loadState" class="load-state">Loading post…</div>
     <div id="fatalError" class="fatal-error hidden"></div>
 
     <div id="portalMain" class="hidden">
       <h1 class="page-title" id="pageTitle">Post</h1>
-      <p class="page-sub">Community portal</p>
 
-      <section class="email-featured">
-        <h2>Featured message</h2>
-        <div id="emailSubject" class="email-subject"></div>
-        <div class="email-content-full">
-          <span id="email-focus-anchor"></span>
-          <div id="emailBody" class="email-body"></div>
+      <section class="content-block">
+        <div id="postSubject" class="subject"></div>
+        <div class="content-body">
+          <div id="postBody"></div>
           <div id="attachmentsBlock" class="attachments hidden">
             <strong>Downloads</strong>
             <ul id="attachmentsList"></ul>
@@ -341,19 +172,28 @@
         </div>
       </section>
 
+      <span id="join-comments"></span>
       <section id="comments-section">
         <div class="composer" id="composer">
-          <div class="avatar" id="userAvatar">?</div>
-          <div class="composer-main">
-            <div class="composer-label" id="composerLabel">Add a comment</div>
-            <textarea id="mainCommentText" placeholder="Share your thoughts…"></textarea>
-            <div class="form-actions">
-              <button type="button" class="btn-primary" id="mainSubmitBtn">Comment</button>
+          <div class="form-row">
+            <div>
+              <label for="inputFname">First name</label>
+              <input id="inputFname" type="text" autocomplete="given-name">
             </div>
-            <div id="mainStatus" class="status-msg" aria-live="polite"></div>
+            <div>
+              <label for="inputLname">Last name</label>
+              <input id="inputLname" type="text" autocomplete="family-name">
+            </div>
           </div>
+          <label for="inputEmail">Email</label>
+          <input id="inputEmail" type="email" autocomplete="email">
+          <label for="mainCommentText">Your comment</label>
+          <textarea id="mainCommentText" placeholder="Share your thoughts…"></textarea>
+          <button type="button" class="btn-primary" id="mainSubmitBtn">Comment</button>
+          <div id="mainStatus" class="status-msg" aria-live="polite"></div>
         </div>
 
+        <h2 class="feed-title">Comments</h2>
         <div id="commentFeed"></div>
       </section>
     </div>
@@ -361,84 +201,59 @@
 
   <script>
     (function () {
-      /** Keep in sync with WEB_APP_URL_DEFAULT in Code.gs */
-      var WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxa3oj2BTcEQladm9llk7yyMYU2vcy7GzQ_dqbnPVGAUiSY9Imf_VZqjIJAHSDD-Q_wbw/exec';
-
-      function isAppsScriptHost() {
-        return typeof google !== 'undefined' && google.script && google.script.run;
-      }
-
-      if (/\.github\.io$/i.test(window.location.hostname)) {
-        var ghQs = new URLSearchParams(window.location.search);
-        if (!ghQs.get('page')) ghQs.set('page', 'comments');
-        window.location.replace(WEBAPP_URL + '?' + ghQs.toString());
-        return;
-      }
-
-      function resolvePostId(params) {
-        var post = (params.get('post') || '').trim();
-        if (post) return post;
-        return (params.get('camp') || '').trim();
-      }
-
-      function withPostAndCamp(postId, data) {
-        var body = Object.assign({}, data);
-        if (postId) {
-          body.post = postId;
-          body.camp = postId;
-        }
-        return body;
-      }
-
-      function callBackend(method, data) {
-        var body = withPostAndCamp(postId, data);
-        if (isAppsScriptHost()) {
-          return new Promise(function (resolve, reject) {
-            google.script.run
-              .withSuccessHandler(resolve)
-              .withFailureHandler(function (err) {
-                reject(new Error(err && err.message ? err.message : String(err)));
-              })
-              [method](body);
-          });
-        }
-        var url = new URL(WEBAPP_URL);
-        Object.keys(body).forEach(function (key) {
-          if (body[key] !== undefined && body[key] !== null && body[key] !== '') {
-            url.searchParams.set(key, String(body[key]));
-          }
-        });
-        url.searchParams.set('api', 'json');
-        return fetch(url.toString(), { method: 'GET', redirect: 'follow' })
-          .then(function (res) {
-            if (!res.ok) throw new Error('Server returned ' + res.status);
-            return res.json();
-          });
-      }
+      var API_URL = 'https://script.google.com/macros/s/AKfycbxa3oj2BTcEQladm9llk7yyMYU2vcy7GzQ_dqbnPVGAUiSY9Imf_VZqjIJAHSDD-Q_wbw/exec';
 
       var params = new URLSearchParams(window.location.search);
-      var postId = resolvePostId(params);
-      var payload = {
-        action: 'comments',
-        post: postId,
-        email: (params.get('email') || '').trim(),
-        fname: (params.get('fname') || '').trim(),
-        lname: (params.get('lname') || '').trim(),
-        deadline: (params.get('deadline') || '').trim()
-      };
-
-      var displayName = [payload.fname, payload.lname].filter(Boolean).join(' ').trim() || 'Guest';
-      var portal = {
+      var postId = (params.get('post') || params.get('camp') || '').trim();
+      var state = {
+        postId: postId,
         comments: [],
         expired: false,
-        isLocked: false,
-        deadlineIso: payload.deadline || ''
+        locked: false,
+        deadlineIso: (params.get('deadline') || '').trim(),
+        postData: null,
+        urlBaseline: { email: '', fname: '', lname: '' }
       };
 
-      function escapeHtml(s) {
+      function esc(s) {
         var d = document.createElement('div');
-        d.textContent = s;
+        d.textContent = s == null ? '' : String(s);
         return d.innerHTML;
+      }
+
+      function apiGet(query) {
+        var url = new URL(API_URL);
+        url.searchParams.set('api', 'json');
+        Object.keys(query).forEach(function (k) {
+          if (query[k] != null && query[k] !== '') url.searchParams.set(k, query[k]);
+        });
+        return fetch(url.toString(), { method: 'GET', redirect: 'follow' })
+          .then(function (r) { return r.text(); })
+          .then(function (t) { return JSON.parse(t); });
+      }
+
+      function apiPost(body) {
+        return fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(body),
+          redirect: 'follow'
+        }).then(function (r) { return r.text(); })
+          .then(function (t) {
+            if (t === 'SUCCESS') return { ok: true };
+            try { return JSON.parse(t); } catch (e) {
+              if (t.indexOf('ERROR:') === 0) throw new Error(t.slice(6).trim());
+              throw new Error(t || 'Request failed');
+            }
+          });
+      }
+
+      function loadPostJson() {
+        return fetch('posts/' + encodeURIComponent(postId) + '.json', { cache: 'no-store' })
+          .then(function (r) {
+            if (!r.ok) throw new Error('no-json');
+            return r.json();
+          });
       }
 
       function showFatal(msg) {
@@ -447,294 +262,434 @@
         document.getElementById('fatalError').textContent = msg;
       }
 
-      function init() {
-        if (!payload.post) {
-          showFatal('Missing post (Post ID) in the URL.');
-          return;
-        }
-        if (!payload.email) {
-          showFatal('Missing email in the URL.');
-          return;
-        }
+      function initIdentityFields() {
+        var email = (params.get('email') || '').trim();
+        var fname = (params.get('fname') || '').trim();
+        var lname = (params.get('lname') || '').trim();
+        state.urlBaseline = { email: email, fname: fname, lname: lname };
+        document.getElementById('inputEmail').value = email;
+        document.getElementById('inputFname').value = fname;
+        document.getElementById('inputLname').value = lname;
 
-        document.getElementById('userAvatar').textContent =
-          (displayName.charAt(0) || '?').toUpperCase();
-        document.getElementById('composerLabel').textContent =
-          'Commenting as ' + displayName;
-
-        callBackend('apiExternalAction', payload)
-          .then(function (data) {
-            if (!data || data.status !== 'success') {
-              showFatal((data && data.message) || 'Could not load portal.');
-              return;
-            }
-            renderPortal(data);
-          })
-          .catch(function (e) {
-            showFatal('Could not load portal. ' + (e.message || ''));
-          });
-      }
-
-      function renderPortal(data) {
-        document.getElementById('loadState').classList.add('hidden');
-        document.getElementById('portalMain').classList.remove('hidden');
-
-        var displayPostId = data.postId || data.campaignId;
-        if (displayPostId) {
-          document.getElementById('pageTitle').textContent = 'Post ' + displayPostId;
-        }
-        if (data.deadlineIso) portal.deadlineIso = data.deadlineIso;
-        portal.expired = !!data.expired;
-        portal.comments = data.comments || [];
-
-        document.getElementById('emailSubject').textContent = data.emailSubject || '';
-        document.getElementById('emailBody').innerHTML =
-          data.emailBodyHtml || '<p><em>No message body on file.</em></p>';
-
-        var attBlock = document.getElementById('attachmentsBlock');
-        var attList = document.getElementById('attachmentsList');
-        attList.innerHTML = '';
-        if (data.attachments && data.attachments.length) {
-          attBlock.classList.remove('hidden');
-          data.attachments.forEach(function (f) {
-            var li = document.createElement('li');
-            var a = document.createElement('a');
-            a.href = f.url;
-            a.target = '_blank';
-            a.rel = 'noopener noreferrer';
-            a.textContent = f.name || f.id;
-            li.appendChild(a);
-            attList.appendChild(li);
-          });
-        }
-
-        renderFeed(portal.comments);
-        renderCountdown();
-        setInterval(renderCountdown, 1000);
-
-        if (portal.expired) lockDiscussion();
-
-        document.getElementById('mainSubmitBtn').addEventListener('click', function () {
-          var txt = document.getElementById('mainCommentText').value.trim();
-          if (!txt) return;
-          submitComment(txt, '', document.getElementById('mainStatus'), function () {
-            document.getElementById('mainCommentText').value = '';
-          });
-        });
-
-        requestAnimationFrame(function () {
-          requestAnimationFrame(function () {
-            var anchor = document.getElementById('email-focus-anchor');
-            if (anchor) anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          });
+        ['inputEmail', 'inputFname', 'inputLname'].forEach(function (id) {
+          document.getElementById(id).addEventListener('input', onIdentityEdited);
         });
       }
 
-      function getExpiry() {
-        if (!portal.deadlineIso) return null;
-        var d = new Date(portal.deadlineIso);
-        return isNaN(d.getTime()) ? null : d;
+      function onIdentityEdited() {
+        var cur = {
+          email: document.getElementById('inputEmail').value.trim(),
+          fname: document.getElementById('inputFname').value.trim(),
+          lname: document.getElementById('inputLname').value.trim()
+        };
+        var b = state.urlBaseline;
+        if (cur.email !== b.email || cur.fname !== b.fname || cur.lname !== b.lname) {
+          stripTrackingParams();
+        }
+      }
+
+      function stripTrackingParams() {
+        var p = new URLSearchParams(window.location.search);
+        ['email', 'fname', 'lname', 'deadline'].forEach(function (k) { p.delete(k); });
+        var qs = p.toString();
+        var next = window.location.pathname + (qs ? '?' + qs : '') + window.location.hash;
+        history.replaceState(null, '', next);
+        state.urlBaseline = { email: '', fname: '', lname: '' };
+      }
+
+      function getDisplayName() {
+        return [
+          document.getElementById('inputFname').value.trim(),
+          document.getElementById('inputLname').value.trim()
+        ].filter(Boolean).join(' ').trim() || 'Guest';
+      }
+
+      function computeDeadline() {
+        if (state.deadlineIso) return new Date(state.deadlineIso);
+        var pd = state.postData;
+        if (!pd || !pd.launchedAt || !pd.daysOpen) return null;
+        var start = new Date(pd.launchedAt);
+        if (isNaN(start.getTime())) return null;
+        return new Date(start.getTime() + parseFloat(pd.daysOpen) * 86400000);
       }
 
       function pad2(n) { return n < 10 ? '0' + n : String(n); }
 
       function renderCountdown() {
-        var unitsEl = document.getElementById('countdownUnits');
+        var units = document.getElementById('countdownUnits');
         var banner = document.getElementById('countdownBanner');
-        var expiry = getExpiry();
-
+        var expiry = computeDeadline();
         if (!expiry) {
-          unitsEl.innerHTML = '<span>∞<em>open</em></span>';
+          units.innerHTML = '<span>∞<em>open</em></span>';
           return;
         }
-
-        var remaining = expiry.getTime() - Date.now();
-        if (remaining <= 0 || portal.expired) {
+        var rem = expiry.getTime() - Date.now();
+        if (rem <= 0 || state.expired) {
           lockDiscussion();
           return;
         }
-
         banner.classList.remove('closed');
-        var totalSec = Math.floor(remaining / 1000);
-        var days = Math.floor(totalSec / 86400);
-        var hours = Math.floor((totalSec % 86400) / 3600);
-        var mins = Math.floor((totalSec % 3600) / 60);
-        var secs = totalSec % 60;
-
-        unitsEl.innerHTML =
-          '<span>' + days + '<em>Days</em></span>' +
-          '<span>' + pad2(hours) + '<em>Hrs</em></span>' +
-          '<span>' + pad2(mins) + '<em>Min</em></span>' +
-          '<span>' + pad2(secs) + '<em>Sec</em></span>';
+        var sec = Math.floor(rem / 1000);
+        var d = Math.floor(sec / 86400);
+        var h = Math.floor((sec % 86400) / 3600);
+        var m = Math.floor((sec % 3600) / 60);
+        var s = sec % 60;
+        units.innerHTML =
+          '<span>' + d + '<em>Days</em></span>' +
+          '<span>' + pad2(h) + '<em>Hrs</em></span>' +
+          '<span>' + pad2(m) + '<em>Min</em></span>' +
+          '<span>' + pad2(s) + '<em>Sec</em></span>';
       }
 
       function lockDiscussion() {
-        if (portal.isLocked) return;
-        portal.isLocked = true;
+        if (state.locked) return;
+        state.locked = true;
+        state.expired = true;
         document.getElementById('countdownBanner').classList.add('closed');
         document.getElementById('composer').classList.add('locked');
-        document.querySelectorAll('.reply-link, .reply-form-panel').forEach(function (el) {
-          el.style.display = 'none';
-        });
+      }
+
+      function renderPost(pd) {
+        document.getElementById('pageTitle').textContent = 'Post ' + (pd.postId || postId);
+        document.getElementById('postSubject').textContent = pd.subject || '';
+        document.getElementById('postBody').innerHTML =
+          pd.messageHtml || '<p><em>No message body.</em></p>';
+
+        var block = document.getElementById('attachmentsBlock');
+        var list = document.getElementById('attachmentsList');
+        list.innerHTML = '';
+        var files = pd.attachments || [];
+        if (!files.length && pd.fileIdsRaw) {
+          files = String(pd.fileIdsRaw).split(',').map(function (id) {
+            id = id.trim();
+            if (!id) return null;
+            return {
+              id: id,
+              name: 'Download attachment',
+              url: 'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(id)
+            };
+          }).filter(Boolean);
+        }
+        if (files.length) {
+          block.classList.remove('hidden');
+          files.forEach(function (f) {
+            var li = document.createElement('li');
+            var a = document.createElement('a');
+            a.href = f.url;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.textContent = f.name || ('Download ' + (f.id || 'file'));
+            li.appendChild(a);
+            list.appendChild(li);
+          });
+        } else {
+          block.classList.add('hidden');
+        }
       }
 
       function formatTime(iso) {
         if (!iso) return '';
         var d = new Date(iso);
-        if (isNaN(d.getTime())) return String(iso);
-        return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+        return isNaN(d.getTime()) ? String(iso) :
+          d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
       }
 
       function buildTree(flat) {
         var map = {};
         var roots = [];
+        flat.forEach(function (c) { map[c.id] = Object.assign({}, c, { children: [] }); });
         flat.forEach(function (c) {
-          map[c.id] = Object.assign({}, c, { children: [] });
-        });
-        flat.forEach(function (c) {
-          var node = map[c.id];
-          if (c.parentId && map[c.parentId]) {
-            map[c.parentId].children.push(node);
-          } else {
-            roots.push(node);
-          }
+          var n = map[c.id];
+          if (c.parentId && map[c.parentId]) map[c.parentId].children.push(n);
+          else roots.push(n);
         });
         return roots;
       }
 
-      function renderCommentNode(node) {
+      function collectSubtreeChrono(node) {
+        var list = [{ id: node.id, parentId: node.parentId, displayName: node.displayName,
+          text: node.text, timestamp: node.timestamp }];
+        (node.children || []).forEach(function (ch) {
+          list = list.concat(collectSubtreeChrono(ch));
+        });
+        list.sort(function (a, b) { return new Date(a.timestamp) - new Date(b.timestamp); });
+        return list;
+      }
+
+      function splitLayoutSegments(chrono) {
+        var segments = [];
+        var current = { mode: 'chat', items: [] };
+
+        function uniqueAuthors(items) {
+          var names = [];
+          items.forEach(function (it) {
+            var n = it.displayName || 'Guest';
+            if (names.indexOf(n) === -1) names.push(n);
+          });
+          return names;
+        }
+
+        function flush() {
+          if (!current.items.length) return;
+          segments.push({ mode: current.mode, items: current.items.slice() });
+          current = { mode: 'chat', items: [] };
+        }
+
+        chrono.forEach(function (item) {
+          if (current.mode === 'chat') {
+            var next = current.items.concat([item]);
+            if (uniqueAuthors(next).length > 2) {
+              flush();
+              current.mode = 'tree';
+              current.items = [item];
+            } else {
+              current.items.push(item);
+            }
+          } else {
+            current.items.push(item);
+            if (uniqueAuthors(current.items).length <= 2) {
+              flush();
+              current.mode = 'chat';
+              current.items = [item];
+            }
+          }
+        });
+        flush();
+        return segments;
+      }
+
+      function renderChatSegment(seg, container, nodeMap) {
         var wrap = document.createElement('div');
-        wrap.className = 'comment-thread';
+        wrap.className = 'chat-segment';
+        var sideMap = {};
+        var flip = false;
 
-        var avatar = document.createElement('div');
-        avatar.className = 'avatar';
-        avatar.textContent = (node.displayName.charAt(0) || '?').toUpperCase();
+        seg.items.forEach(function (item) {
+          var name = item.displayName || 'Guest';
+          if (!sideMap[name]) {
+            sideMap[name] = flip ? 'right' : 'left';
+            flip = !flip;
+          }
+          var row = document.createElement('div');
+          row.className = 'chat-row ' + sideMap[name];
+          row.innerHTML =
+            '<div class="bubble">' +
+            '<div class="bubble-meta">' + esc(name) + ' · ' + esc(formatTime(item.timestamp)) + '</div>' +
+            esc(item.text) +
+            '</div>';
+          wrap.appendChild(row);
+          attachReplyUi(item, wrap, nodeMap);
+        });
+        container.appendChild(wrap);
+      }
 
-        var main = document.createElement('div');
-        main.className = 'comment-main';
-
-        var header = document.createElement('div');
-        header.className = 'comment-header';
-        header.innerHTML =
-          '<span class="comment-author">' + escapeHtml(node.displayName) + '</span>' +
-          '<span class="comment-time">' + escapeHtml(formatTime(node.timestamp)) + '</span>';
-
-        var body = document.createElement('div');
-        body.className = 'comment-text';
-        body.textContent = node.text;
-
-        main.appendChild(header);
-        main.appendChild(body);
-
-        if (!portal.isLocked) {
-          var replyBtn = document.createElement('button');
-          replyBtn.type = 'button';
-          replyBtn.className = 'reply-link';
-          replyBtn.textContent = 'Reply';
-
-          var replyPanel = document.createElement('div');
-          replyPanel.className = 'reply-form-panel';
-          replyPanel.innerHTML =
-            '<textarea placeholder="Add a reply…"></textarea>' +
-            '<div class="form-actions">' +
-            '<button type="button" class="btn-ghost reply-cancel">Cancel</button>' +
-            '<button type="button" class="btn-primary reply-submit">Reply</button>' +
-            '</div><div class="status-msg reply-status"></div>';
-
-          replyBtn.addEventListener('click', function () {
-            document.querySelectorAll('.reply-form-panel.open').forEach(function (p) {
-              if (p !== replyPanel) p.classList.remove('open');
+      function renderTreeItems(items, container, nodeMap, depth) {
+        depth = depth || 0;
+        items.forEach(function (item) {
+          var node = nodeMap[item.id];
+          var el = document.createElement('div');
+          el.className = 'tree-node';
+          el.innerHTML =
+            '<div class="meta"><strong>' + esc(item.displayName) + '</strong> · ' +
+            esc(formatTime(item.timestamp)) + '</div>' +
+            '<div class="text">' + esc(item.text) + '</div>';
+          attachReplyUi(item, el, nodeMap);
+          container.appendChild(el);
+          if (node && node.children && node.children.length) {
+            var kids = document.createElement('div');
+            kids.className = 'tree-children';
+            var childChrono = [];
+            node.children.forEach(function (ch) {
+              childChrono = childChrono.concat(collectSubtreeChrono(ch));
             });
-            replyPanel.classList.toggle('open');
-            replyPanel.querySelector('textarea').focus();
-          });
-
-          replyPanel.querySelector('.reply-cancel').addEventListener('click', function () {
-            replyPanel.classList.remove('open');
-            replyPanel.querySelector('textarea').value = '';
-          });
-
-          replyPanel.querySelector('.reply-submit').addEventListener('click', function () {
-            var txt = replyPanel.querySelector('textarea').value.trim();
-            if (!txt) return;
-            submitComment(txt, node.id, replyPanel.querySelector('.reply-status'), function () {
-              replyPanel.classList.remove('open');
-              replyPanel.querySelector('textarea').value = '';
+            childChrono.sort(function (a, b) {
+              return new Date(a.timestamp) - new Date(b.timestamp);
             });
+            renderThreadBranch(childChrono, nodeMap, kids);
+            if (kids.childNodes.length) el.appendChild(kids);
+          }
+        });
+      }
+
+      function renderThreadBranch(chrono, nodeMap, container) {
+        var segments = splitLayoutSegments(chrono);
+        segments.forEach(function (seg) {
+          if (!seg.items.length) return;
+          if (seg.mode === 'chat') renderChatSegment(seg, container, nodeMap);
+          else renderTreeItems(seg.items, container, nodeMap, 0);
+        });
+      }
+
+      function attachReplyUi(item, parentEl, nodeMap) {
+        if (state.locked) return;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'reply-btn';
+        btn.textContent = 'Reply';
+        var panel = document.createElement('div');
+        panel.className = 'reply-panel';
+        panel.innerHTML =
+          '<textarea placeholder="Write a reply…"></textarea>' +
+          '<button type="button" class="btn-primary reply-submit" style="margin-top:.4rem">Reply</button>' +
+          '<div class="status-msg reply-status"></div>';
+
+        btn.addEventListener('click', function () {
+          document.querySelectorAll('.reply-panel.open').forEach(function (p) {
+            if (p !== panel) p.classList.remove('open');
           });
+          panel.classList.toggle('open');
+          panel.querySelector('textarea').focus();
+        });
 
-          main.appendChild(replyBtn);
-          main.appendChild(replyPanel);
-        }
-
-        wrap.appendChild(avatar);
-        wrap.appendChild(main);
-
-        if (node.children && node.children.length) {
-          var childBox = document.createElement('div');
-          childBox.className = 'replies';
-          node.children.forEach(function (child) {
-            childBox.appendChild(renderCommentNode(child));
+        panel.querySelector('.reply-submit').addEventListener('click', function () {
+          var txt = panel.querySelector('textarea').value.trim();
+          if (!txt) return;
+          submitComment(txt, item.id, panel.querySelector('.reply-status'), function () {
+            panel.classList.remove('open');
+            panel.querySelector('textarea').value = '';
           });
-          main.appendChild(childBox);
-        }
+        });
 
-        return wrap;
+        parentEl.appendChild(btn);
+        parentEl.appendChild(panel);
       }
 
       function renderFeed(list) {
         var feed = document.getElementById('commentFeed');
         feed.innerHTML = '';
         if (!list || !list.length) {
-          feed.innerHTML = '<p class="empty-feed">No comments yet. Be the first to share your thoughts.</p>';
+          feed.innerHTML = '<p class="empty-feed">No comments yet. Be the first.</p>';
           return;
         }
-        buildTree(list).forEach(function (node) {
-          feed.appendChild(renderCommentNode(node));
+        var roots = buildTree(list);
+        var nodeMap = {};
+        function indexNodes(nodes) {
+          nodes.forEach(function (n) {
+            nodeMap[n.id] = n;
+            if (n.children && n.children.length) indexNodes(n.children);
+          });
+        }
+        indexNodes(roots);
+        roots.forEach(function (root) {
+          var chrono = collectSubtreeChrono(root);
+          var branch = document.createElement('div');
+          branch.className = 'thread-branch';
+          renderThreadBranch(chrono, nodeMap, branch);
+          feed.appendChild(branch);
         });
       }
 
-      function submitComment(text, parentId, statusEl, onSuccess) {
-        if (portal.isLocked) {
+      function submitComment(text, parentId, statusEl, onOk) {
+        if (state.locked) {
           statusEl.textContent = 'Discussion is closed.';
           statusEl.className = 'status-msg err';
           return;
         }
-
+        var email = document.getElementById('inputEmail').value.trim();
+        if (!email) {
+          statusEl.textContent = 'Email is required.';
+          statusEl.className = 'status-msg err';
+          return;
+        }
         statusEl.textContent = 'Posting…';
         statusEl.className = 'status-msg';
 
-        callBackend('apiCommentSubmit', {
+        apiPost({
+          cmd: 'comment',
           post: postId,
+          camp: postId,
           comment: text,
-          email: payload.email,
-          fname: payload.fname,
-          lname: payload.lname,
+          email: email,
+          fname: document.getElementById('inputFname').value.trim(),
+          lname: document.getElementById('inputLname').value.trim(),
+          displayName: getDisplayName(),
           parentId: parentId || ''
-        })
-          .then(function (data) {
-            if (data && (data.status === 'success' || data.success)) {
-              statusEl.textContent = data.message || 'Posted.';
-              statusEl.className = 'status-msg ok';
-              portal.comments = data.comments || portal.comments;
-              renderFeed(portal.comments);
-              if (onSuccess) onSuccess();
-            } else {
-              statusEl.textContent = (data && data.message) || 'Could not post.';
-              statusEl.className = 'status-msg err';
-              if (data && data.expired) {
-                portal.expired = true;
-                lockDiscussion();
-              }
-            }
-          })
-          .catch(function () {
-            statusEl.textContent = 'Could not post. Try again.';
+        }).then(function (data) {
+          if (data && data.ok) {
+            statusEl.textContent = data.message || 'Posted.';
+            statusEl.className = 'status-msg ok';
+            state.comments = data.comments || state.comments;
+            renderFeed(state.comments);
+            if (onOk) onOk();
+          } else {
+            statusEl.textContent = (data && data.message) || 'Could not post.';
             statusEl.className = 'status-msg err';
-          });
+          }
+        }).catch(function (e) {
+          statusEl.textContent = e.message || 'Could not post.';
+          statusEl.className = 'status-msg err';
+        });
       }
 
-      init();
+      function boot() {
+        if (!postId) {
+          showFatal('Missing post parameter in URL.');
+          return;
+        }
+
+        initIdentityFields();
+
+        Promise.all([
+          loadPostJson().catch(function () { return null; }),
+          apiGet({ cmd: 'getComments', post: postId, camp: postId })
+        ]).then(function (results) {
+          var postJson = results[0];
+          var commentResp = results[1];
+
+          if (commentResp && commentResp.ok) {
+            state.comments = commentResp.comments || [];
+          }
+
+          return apiGet({ cmd: 'getPortal', post: postId, camp: postId }).then(function (portal) {
+            if (portal && portal.ok) {
+              if (portal.deadlineIso) state.deadlineIso = portal.deadlineIso;
+              state.expired = !!portal.expired;
+              state.comments = portal.comments || state.comments;
+              if (!postJson) {
+                postJson = {
+                  postId: postId,
+                  subject: portal.emailSubject,
+                  messageHtml: portal.emailBodyHtml,
+                  attachments: portal.attachments,
+                  daysOpen: portal.daysOpen
+                };
+              }
+            }
+            return postJson;
+          });
+        }).then(function (postJson) {
+          if (!postJson) {
+            showFatal('Post content not found. Run Post Send & Sync from the spreadsheet.');
+            return;
+          }
+          state.postData = postJson;
+          document.getElementById('loadState').classList.add('hidden');
+          document.getElementById('portalMain').classList.remove('hidden');
+          renderPost(postJson);
+          renderFeed(state.comments);
+          renderCountdown();
+          setInterval(renderCountdown, 1000);
+          if (state.expired) lockDiscussion();
+
+          document.getElementById('mainSubmitBtn').addEventListener('click', function () {
+            var txt = document.getElementById('mainCommentText').value.trim();
+            if (!txt) return;
+            submitComment(txt, '', document.getElementById('mainStatus'), function () {
+              document.getElementById('mainCommentText').value = '';
+            });
+          });
+
+          if (window.location.hash === '#join-comments') {
+            requestAnimationFrame(function () {
+              document.getElementById('join-comments').scrollIntoView({ behavior: 'smooth' });
+            });
+          }
+        }).catch(function (e) {
+          showFatal('Could not load post. ' + (e.message || ''));
+        });
+      }
+
+      boot();
     })();
   </script>
 </body>
