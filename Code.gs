@@ -41,6 +41,14 @@ var ATTACH_ERROR_BG = '#ffcccc';
  */
 var GITHUB_PAGES_BASE_URL_DEFAULT = 'https://jesusdiscussions.github.io/portal';
 
+/**
+ * Deployed web app /exec URL (Emailer Backend @16).
+ * Keep in sync with WEBAPP_URL in index.html and CommentsPage.html.
+ * Override via Script property WEB_APP_URL.
+ */
+var WEB_APP_URL_DEFAULT =
+  'https://script.google.com/macros/s/AKfycbxa3oj2BTcEQladm9llk7yyMYU2vcy7GzQ_dqbnPVGAUiSY9Imf_VZqjIJAHSDD-Q_wbw/exec';
+
 var POST_LOG_HEADERS = [
   HEADER_POST_ID,
   HEADER_STATUS,
@@ -582,6 +590,37 @@ function getGitHubPagesBaseUrl() {
   return base.replace(/\/$/, '');
 }
 
+/** Active Apps Script web app /exec URL (used by static HTML fetch targets). */
+function getWebAppUrl() {
+  var fromProps = PropertiesService.getScriptProperties().getProperty('WEB_APP_URL');
+  if (fromProps) {
+    return fromProps.trim();
+  }
+  try {
+    var url = ScriptApp.getService().getUrl();
+    if (url) {
+      return url;
+    }
+  } catch (err) {
+    // Not deployed as a web app in this context.
+  }
+  return WEB_APP_URL_DEFAULT;
+}
+
+/**
+ * Resolves Post ID from URL/query map (canonical post, legacy camp).
+ */
+function resolvePostIdFromUrlParameters(params) {
+  if (!params) {
+    return '';
+  }
+  var post = String(params.post || '').trim();
+  if (post) {
+    return post;
+  }
+  return String(params.camp || '').trim();
+}
+
 /** GitHub Pages comment portal (standalone HTML, not Apps Script). */
 function buildCommentsPageLink(postId, email, fname, lname, deadlineIso) {
   var params = [
@@ -653,10 +692,56 @@ function stripHtml(html) {
 
 // ——— Web app routing ———
 
-/** GET: API info only — all subscriber UI is on GitHub Pages. */
+/**
+ * GET: legacy Apps Script links (post or camp) redirect to GitHub Pages with post=.
+ * Otherwise returns API info (POST JSON to web app URL).
+ */
 function doGet(e) {
+  var params = (e && e.parameter) || {};
+  var postId = resolvePostIdFromUrlParameters(params);
+  var action = normalizeAction(params.action || '');
+
+  if (action && postId) {
+    var email = String(params.email || '').trim();
+    var fname = String(params.fname || '').trim();
+    var lname = String(params.lname || '').trim();
+    var deadline = String(params.deadline || '').trim();
+    var target = buildPostLink(
+      action,
+      postId,
+      email,
+      fname,
+      lname,
+      deadline || undefined
+    );
+    return HtmlService.createHtmlOutput(
+      '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+      '<title>Redirecting</title></head><body>' +
+      '<script>window.location.replace(' + JSON.stringify(target) + ');</script>' +
+      '<p>Redirecting… <a href="' + escapeHtml(target) + '">Continue</a></p></body></html>'
+    ).setTitle('Redirecting');
+  }
+
+  if (postId && String(params.email || '').trim()) {
+    var commentsTarget = buildCommentsPageLink(
+      postId,
+      String(params.email || '').trim(),
+      String(params.fname || '').trim(),
+      String(params.lname || '').trim(),
+      String(params.deadline || '').trim() || undefined
+    );
+    return HtmlService.createHtmlOutput(
+      '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+      '<title>Redirecting</title></head><body>' +
+      '<script>window.location.replace(' + JSON.stringify(commentsTarget) + ');</script>' +
+      '<p>Redirecting… <a href="' + escapeHtml(commentsTarget) + '">Continue</a></p></body></html>'
+    ).setTitle('Redirecting');
+  }
+
   return textPage(
-    'Blog Platform Engine API (POST). Subscriber UI: GitHub Pages index.html and CommentsPage.html.',
+    'Blog Platform Engine API (POST to ' + getWebAppUrl() + '). ' +
+      'Subscriber UI: GitHub Pages index.html and CommentsPage.html. ' +
+      'URL params: post (or legacy camp), action, email.',
     'Blog Platform Engine'
   );
 }
@@ -702,9 +787,9 @@ function parseIncomingPayload(e) {
   return payload;
 }
 
-/** Resolves post ID from payload (post or legacy camp). */
+/** Resolves post ID from JSON/form payload (post or legacy camp). */
 function resolvePostIdFromPayload(payload) {
-  return String(payload.post || payload.camp || '').trim();
+  return resolvePostIdFromUrlParameters(payload);
 }
 
 function handleExternalAction(payload) {

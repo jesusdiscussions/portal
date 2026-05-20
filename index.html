@@ -108,10 +108,26 @@
 
   <script>
     (function () {
+      /** Keep in sync with WEB_APP_URL_DEFAULT in Code.gs */
       var WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxa3oj2BTcEQladm9llk7yyMYU2vcy7GzQ_dqbnPVGAUiSY9Imf_VZqjIJAHSDD-Q_wbw/exec';
 
       /** Same folder as index.html on GitHub Pages */
       var COMMENTS_PAGE = 'CommentsPage.html';
+
+      function resolvePostId(params) {
+        var post = (params.get('post') || '').trim();
+        if (post) return post;
+        return (params.get('camp') || '').trim();
+      }
+
+      function withPostAndCamp(postId, data) {
+        var body = Object.assign({}, data);
+        if (postId) {
+          body.post = postId;
+          body.camp = postId;
+        }
+        return body;
+      }
 
       var params = new URLSearchParams(window.location.search);
       var rawAction = (params.get('action') || '').trim().toLowerCase();
@@ -124,7 +140,7 @@
        */
       if (rawAction === 'comments') {
         var forward = new URLSearchParams();
-        var postVal = params.get('post') || params.get('camp');
+        var postVal = resolvePostId(params);
         if (postVal) forward.set('post', postVal);
         ['email', 'fname', 'lname', 'deadline'].forEach(function (key) {
           var val = params.get(key);
@@ -135,9 +151,10 @@
         return;
       }
 
+      var postId = resolvePostId(params);
       var payload = {
         action: rawAction,
-        post: (params.get('post') || params.get('camp') || '').trim(),
+        post: postId,
         email: (params.get('email') || '').trim(),
         fname: (params.get('fname') || '').trim(),
         lname: (params.get('lname') || '').trim()
@@ -205,7 +222,7 @@
         return;
       }
 
-      postToAppsScript(payload)
+      postToAppsScript(withPostAndCamp(postId, payload))
         .then(function (data) {
           if (data && data.status === 'success') {
             showSuccess(data);

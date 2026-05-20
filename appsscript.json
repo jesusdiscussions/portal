@@ -1,9 +1,10 @@
 {
-    "timeZone": "America/Chicago",
-    "runtimeVersion": "V8",
-    "dependencies": {
-    },
-    "exceptionLogging": "CLOUD"
+  "timeZone": "America/Chicago",
+  "runtimeVersion": "V8",
+  "dependencies": {},
+  "exceptionLogging": "CLOUD",
+  "webapp": {
+    "executeAs": "USER_DEPLOYING",
+    "access": "ANYONE"
   }
-  
-  
+}
