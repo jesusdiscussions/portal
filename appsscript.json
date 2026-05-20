@@ -1,11 +1,14 @@
 {
-  "timeZone": "America/Chicago",
-  "dependencies": {},
-  "exceptionLogging": "CLOUD",
-  "oauthScopes": [
-    "https://www.googleapis.com/auth/spreadsheets.currentonly",
-    "https://www.googleapis.com/auth/script.send_mail",
-    "https://www.googleapis.com/auth/drive.readonly",
-    "https://www.googleapis.com/auth/script.external_request"
-  ]
-}
+    "timeZone": "America/Chicago",
+    "runtimeVersion": "V8",
+    "dependencies": {
+    },
+    "exceptionLogging": "CLOUD",
+    "oauthScopes": [
+      "https://googleapis.com",
+      "https://googleapis.com",
+      "https://googleapis.com",
+      "https://googleapis.com"
+    ]
+  }
+  
