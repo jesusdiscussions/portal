@@ -50,9 +50,25 @@ function onOpen() {
     .createMenu('Blog Platform Engine')
     .addItem('Setup sheets (one-shot)', 'setupSheets')
     .addItem('Set GitHub Pages base URL…', 'promptGitHubPagesUrl')
+    .addItem('Test API (open in browser)…', 'openApiTestLink')
     .addSeparator()
     .addItem('Run Post Send & Sync', 'runPostEngine')
     .addToUi();
+}
+
+/** Test API: shows URL in a native alert (modal HTML is blocked in Sheets for this permission set). */
+function openApiTestLink() {
+  var url = getWebAppUrl() + '?api=json&cmd=ping';
+  var ui = SpreadsheetApp.getUi();
+  /** showModalDialog often fails with "permissions not sufficient" in Sheets; alert always works. */
+  ui.alert(
+    'API access test',
+    'Open this URL in a new browser tab.\n\n' +
+      'You should see JSON starting with {"ok":true ...\n\n' +
+      'If Google asks you to sign in, redeploy the web app with access Anyone (anonymous).\n\n' +
+      url,
+    ui.ButtonSet.OK
+  );
 }
 
 function promptGitHubPagesUrl() {
@@ -83,7 +99,7 @@ function setupSheets() {
     'Blog Platform Engine sheets ready.\n\n' +
     '• ' + SHEET_POST_LOG + (postResult.created ? ' (created)' : '') + '\n' +
     '• ' + SHEET_COMMENTS + '\n\n' +
-    'Deploy this script as a web app (Anyone), then run Post Send & Sync.'
+    'Deploy this script as a web app with access set to Anyone (anonymous), then run Post Send & Sync.'
   );
 }
 
@@ -517,8 +533,33 @@ function syncWebPostToGitHub(payload, isLaunch) {
 function doGet(e) {
   var params = (e && e.parameter) || {};
   if (String(params.api || '').toLowerCase() === 'json') {
-    var result = handleApiRequest(mergeParams(params, {}));
+    var merged = mergeParams(params, {});
+    var result = handleApiRequest(merged);
     var json = serializeApiResult_(result);
+
+    /** Iframe bridge for mail clients (e.g. Yahoo) that block dynamic script injection. */
+    if (String(params.embed || '').trim() === '1') {
+      var b64 = Utilities.base64Encode(json, Utilities.Charset.UTF_8);
+      var rid = String(params.rid || '').replace(/[^a-zA-Z0-9_-]/g, '');
+      var html =
+        '<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_self">' +
+        '<script>(function(){' +
+        'var rid=' + JSON.stringify(rid) + ';' +
+        'try{' +
+        'var s=atob(' + JSON.stringify(b64) + ');' +
+        'var p=JSON.parse(s);' +
+        'var t=null;try{t=window.top;}catch(e1){}' +
+        'if(!t||t===window){try{t=window.parent;}catch(e2){}}' +
+        'if(t&&t!==window){t.postMessage({source:"bpe_api",rid:rid,payload:p},"*");}' +
+        '}catch(err){' +
+        'var t2=null;try{t2=window.top;}catch(e3){}' +
+        'if(!t2||t2===window){try{t2=window.parent;}catch(e4){}}' +
+        'if(t2&&t2!==window){t2.postMessage({source:"bpe_api",rid:rid,payload:{ok:false,message:String(err)}}, "*");}' +
+        '}' +
+        '})();</script></head><body></body></html>';
+      return ContentService.createTextOutput(html).setMimeType(ContentService.MimeType.HTML);
+    }
+
     var callback = String(params.callback || '').trim();
     if (callback && /^[a-zA-Z_$][\w.$]*$/.test(callback)) {
       return ContentService.createTextOutput(callback + '(' + json + ')')
@@ -571,6 +612,19 @@ function parseRequestBody(e) {
 function handleApiRequest(payload) {
   var cmd = String(payload.cmd || payload.action || '').trim().toLowerCase();
   if (cmd === 'unsubscribe') cmd = 'unsub';
+
+  if (cmd === 'ping') {
+    var sheet = getPostLogSheet();
+    return {
+      ok: true,
+      _rawJson: JSON.stringify({
+        ok: true,
+        message: 'API reachable',
+        spreadsheetLinked: !!sheet,
+        spreadsheetId: PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID') || ''
+      })
+    };
+  }
 
   if (cmd === 'confirm' || cmd === 'unsub') {
     return apiStatusUpdate(payload, cmd === 'confirm' ? STATUS_CONFIRMED : STATUS_UNSUBSCRIBED);

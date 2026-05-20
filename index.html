@@ -103,37 +103,91 @@
         return d.innerHTML;
       }
 
-      function apiJsonp(params) {
-        return new Promise(function (resolve, reject) {
-          var cb = 'bpe_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-          var url = new URL(API_URL);
-          url.searchParams.set('api', 'json');
-          Object.keys(params).forEach(function (k) {
-            if (params[k] != null && params[k] !== '') {
-              url.searchParams.set(k, String(params[k]));
-            }
-          });
-          url.searchParams.set('callback', cb);
-          var timer = setTimeout(function () {
-            cleanup();
-            reject(new Error('Request timed out'));
-          }, 45000);
-          var script = document.createElement('script');
-          function cleanup() {
-            clearTimeout(timer);
-            delete window[cb];
-            if (script.parentNode) script.parentNode.removeChild(script);
+      function callApi(params) {
+        var rid = 'rid_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+
+        function trustedOrigin(origin) {
+          try {
+            var h = new URL(origin || '').hostname.toLowerCase();
+            return h === 'script.google.com' || h.indexOf('googleusercontent.com') !== -1;
+          } catch (e) {
+            return false;
           }
-          window[cb] = function (data) {
-            cleanup();
-            resolve(data);
-          };
-          script.onerror = function () {
-            cleanup();
-            reject(new Error('Failed to fetch'));
-          };
-          script.src = url.toString();
-          document.head.appendChild(script);
+        }
+
+        function tryJsonp() {
+          return new Promise(function (resolve, reject) {
+            var cb = 'bpe_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+            var url = new URL(API_URL);
+            url.searchParams.set('api', 'json');
+            Object.keys(params).forEach(function (k) {
+              if (params[k] != null && params[k] !== '') {
+                url.searchParams.set(k, String(params[k]));
+              }
+            });
+            url.searchParams.set('callback', cb);
+            var timer = setTimeout(function () {
+              cleanup();
+              reject(new Error('JSONP timed out'));
+            }, 25000);
+            var script = document.createElement('script');
+            function cleanup() {
+              clearTimeout(timer);
+              delete window[cb];
+              if (script.parentNode) script.parentNode.removeChild(script);
+            }
+            window[cb] = function (data) {
+              cleanup();
+              resolve(data);
+            };
+            script.onerror = function () {
+              cleanup();
+              reject(new Error('JSONP blocked'));
+            };
+            script.src = url.toString();
+            document.head.appendChild(script);
+          });
+        }
+
+        function tryIframeEmbed() {
+          return new Promise(function (resolve, reject) {
+            var url = new URL(API_URL);
+            url.searchParams.set('api', 'json');
+            url.searchParams.set('embed', '1');
+            url.searchParams.set('rid', rid);
+            Object.keys(params).forEach(function (k) {
+              if (params[k] != null && params[k] !== '') {
+                url.searchParams.set(k, String(params[k]));
+              }
+            });
+            var iframe = document.createElement('iframe');
+            iframe.setAttribute('aria-hidden', 'true');
+            iframe.style.cssText =
+              'position:absolute;width:1px;height:1px;left:-99px;top:-99px;border:0;opacity:0;pointer-events:none';
+            var timer = setTimeout(function () {
+              cleanup();
+              reject(new Error('Embed timed out'));
+            }, 25000);
+            function cleanup() {
+              clearTimeout(timer);
+              window.removeEventListener('message', onMsg);
+              if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+            }
+            function onMsg(ev) {
+              if (!trustedOrigin(ev.origin)) return;
+              var d = ev.data;
+              if (!d || d.source !== 'bpe_api' || d.rid !== rid) return;
+              cleanup();
+              resolve(d.payload);
+            }
+            window.addEventListener('message', onMsg);
+            iframe.src = url.toString();
+            document.body.appendChild(iframe);
+          });
+        }
+
+        return tryJsonp().catch(function () {
+          return tryIframeEmbed();
         });
       }
 
@@ -166,7 +220,7 @@
         return;
       }
 
-      apiJsonp(payload).then(function (data) {
+      callApi(payload).then(function (data) {
         if (data && data.ok) {
           document.getElementById('okTitle').textContent =
             payload.cmd === 'confirm' ? 'Subscription confirmed' : 'Unsubscribed';
@@ -187,7 +241,8 @@
       }).catch(function (e) {
         show('sErr');
         document.getElementById('errMsg').textContent =
-          'Could not reach the service. ' + (e.message || '');
+          'Could not reach the service. If you are inside Yahoo Mail or another in-app browser, open this page in Safari or Chrome, then try again. ' +
+          (e.message || '');
       });
     })();
   </script>
