@@ -422,7 +422,19 @@ function buildGitHubPageUrl(page, queryMap, hash) {
   var url = getGitHubPagesBaseUrl() + '/' + page;
   if (parts.length) url += '?' + parts.join('&');
   if (hash) url += hash;
-  return url;
+  return wrapMailClientHandoffUrl_(url);
+}
+
+/**
+ * Yahoo / in-app mail browsers often block JSONP and iframes to Apps Script.
+ * Email links point to go.html?b=… which decodes and hands off to Safari / Chrome.
+ */
+function wrapMailClientHandoffUrl_(absoluteUrl) {
+  var s = String(absoluteUrl || '');
+  if (!s || s.indexOf('/go.html') !== -1) return s;
+  var bytes = Utilities.newBlob(s, 'text/plain', 'UTF-8').getBytes();
+  var b64 = Utilities.base64Encode(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return getGitHubPagesBaseUrl() + '/go.html?b=' + encodeURIComponent(b64);
 }
 
 function buildEmailFooter(webPostId, email, fname, lname, deadlineIso) {

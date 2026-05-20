@@ -174,9 +174,31 @@
         return false;
       }
 
+      function toHandoffB64(str) {
+        var utf8 = unescape(encodeURIComponent(String(str)));
+        var bin = '';
+        for (var i = 0; i < utf8.length; i++) {
+          bin += String.fromCharCode(utf8.charCodeAt(i));
+        }
+        return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      }
+
+      function mailHandoffUrlForCurrentPage() {
+        if (window.location.href.indexOf('/go.html') !== -1) {
+          return window.location.href;
+        }
+        var hop = new URL('go.html', window.location.href);
+        hop.searchParams.set('b', toHandoffB64(window.location.href));
+        return hop.href;
+      }
+
+      function navigateToMailHandoff() {
+        window.location.href = mailHandoffUrlForCurrentPage();
+      }
+
       function syncAppExitHref() {
         var link = document.getElementById('appExitBtn');
-        if (link) link.href = window.location.href;
+        if (link) link.href = mailHandoffUrlForCurrentPage();
       }
 
       function showAppExitBanner(mode) {
@@ -197,33 +219,8 @@
         if (!link || link.getAttribute('data-wired') === '1') return;
         link.setAttribute('data-wired', '1');
         link.addEventListener('click', function (ev) {
-          var url = window.location.href;
           ev.preventDefault();
-          syncAppExitHref();
-          var w = null;
-          try {
-            w = window.open(url, '_blank', 'noopener,noreferrer');
-          } catch (e) {
-            w = null;
-          }
-          if (w) {
-            try {
-              w.opener = null;
-            } catch (e2) { /* ignore */ }
-            return;
-          }
-          try {
-            var a = document.createElement('a');
-            a.href = url;
-            a.target = '_blank';
-            a.rel = 'noopener noreferrer';
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-          } catch (e3) {
-            window.top.location.href = url;
-          }
+          navigateToMailHandoff();
         });
       }
 

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Open in browser</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 1.25rem 1rem 2rem;
+      background: #0f0f0f;
+      color: #f1f1f1;
+      text-align: center;
+      line-height: 1.45;
+    }
+    h1 { font-size: 1.05rem; font-weight: 600; margin: 0 0 0.5rem; }
+    p { margin: 0.35rem 0; color: #aaa; font-size: 0.9rem; }
+    .actions { margin-top: 1.25rem; display: flex; flex-direction: column; align-items: center; gap: 0.65rem; }
+    .btn {
+      display: inline-block;
+      padding: 0.65rem 1.25rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      border-radius: 999px;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      max-width: 100%;
+    }
+    .btn-primary { background: #3ea6ff; color: #0f0f0f; }
+    .btn-secondary { background: #303030; color: #eee; border: 1px solid #555; }
+    .target { word-break: break-all; font-size: 0.72rem; color: #666; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Continue outside the mail app</h1>
+  <p id="line1">Mail apps often block this page. Use the button below to open it in Safari or Chrome.</p>
+  <div class="actions">
+    <a id="safariLink" class="btn btn-primary" href="#" rel="noopener noreferrer">Open in Safari / Chrome</a>
+    <a id="plainLink" class="btn btn-secondary" href="#" target="_blank" rel="noopener noreferrer">Open (new tab)</a>
+    <button type="button" class="btn btn-secondary" id="copyBtn">Copy link</button>
+  </div>
+  <p class="target" id="targetPreview" hidden></p>
+  <script>
+    (function () {
+      function qp(name) {
+        try {
+          return new URLSearchParams(window.location.search).get(name) || '';
+        } catch (e) {
+          return '';
+        }
+      }
+
+      function fromWebSafeB64(s) {
+        if (!s) return '';
+        try {
+          s = decodeURIComponent(String(s).trim()).replace(/-/g, '+').replace(/_/g, '/');
+          var pad = (4 - (s.length % 4)) % 4;
+          s += '===='.slice(0, pad);
+          var bin = atob(s);
+          try {
+            return decodeURIComponent(escape(bin));
+          } catch (e2) {
+            var u = new Uint8Array(bin.length);
+            for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+            return new TextDecoder('utf-8').decode(u);
+          }
+        } catch (e) {
+          return '';
+        }
+      }
+
+      var enc = qp('b') || qp('u') || '';
+      if (!enc && window.location.hash.length > 2) {
+        enc = window.location.hash.slice(1);
+      }
+      var target = fromWebSafeB64(enc);
+
+      var safariLink = document.getElementById('safariLink');
+      var plainLink = document.getElementById('plainLink');
+      var copyBtn = document.getElementById('copyBtn');
+      var preview = document.getElementById('targetPreview');
+
+      if (!target || !/^https?:\/\//i.test(target)) {
+        document.getElementById('line1').textContent =
+          'This link is invalid or incomplete. Open the message again from your email.';
+        safariLink.style.display = 'none';
+        plainLink.style.display = 'none';
+        copyBtn.style.display = 'none';
+        return;
+      }
+
+      plainLink.href = target;
+
+      var isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
+      var isAndroid = /Android/i.test(navigator.userAgent);
+
+      if (isIOS) {
+        safariLink.href = 'x-safari-' + target;
+        safariLink.textContent = 'Open in Safari';
+      } else if (isAndroid) {
+        safariLink.href = '#';
+        safariLink.addEventListener('click', function (e) {
+          e.preventDefault();
+          tryAndroidIntent();
+        });
+        safariLink.textContent = 'Open in Chrome';
+      } else {
+        safariLink.href = target;
+        safariLink.target = '_blank';
+        safariLink.rel = 'noopener noreferrer';
+        safariLink.textContent = 'Open in browser';
+      }
+
+      preview.textContent = target;
+      preview.hidden = false;
+
+      function tryAndroidIntent() {
+        if (!/Android/i.test(navigator.userAgent)) return false;
+        try {
+          var rest = target.replace(/^https:\/\//i, '');
+          var intent =
+            'intent://' +
+            rest +
+            '#Intent;scheme=https;action=android.intent.action.VIEW;S.browser_fallback_url=' +
+            encodeURIComponent(target) +
+            ';end';
+          window.location.replace(intent);
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      function autoLeave() {
+        if (/iPad|iPhone|iPod/i.test(navigator.userAgent)) {
+          try {
+            window.location.replace('x-safari-' + target);
+            return;
+          } catch (e) { /* continue */ }
+        }
+        if (tryAndroidIntent()) return;
+        try {
+          window.location.replace(target);
+        } catch (e2) {
+          /* user will tap a button */
+        }
+      }
+
+      autoLeave();
+
+      copyBtn.addEventListener('click', function () {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(target).then(
+            function () {
+              copyBtn.textContent = 'Copied!';
+            },
+            function () {
+              fallbackCopy();
+            }
+          );
+        } else {
+          fallbackCopy();
+        }
+        function fallbackCopy() {
+          var ta = document.createElement('textarea');
+          ta.value = target;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.select();
+          try {
+            document.execCommand('copy');
+            copyBtn.textContent = 'Copied!';
+          } catch (e) {
+            copyBtn.textContent = 'Select the URL above manually';
+          }
+          document.body.removeChild(ta);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
