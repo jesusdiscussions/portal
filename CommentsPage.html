@@ -283,41 +283,9 @@
         return false;
       }
 
-      function toHandoffB64(str) {
-        var utf8 = unescape(encodeURIComponent(String(str)));
-        var bin = '';
-        for (var i = 0; i < utf8.length; i++) {
-          bin += String.fromCharCode(utf8.charCodeAt(i));
-        }
-        return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-      }
-
-      /** Shorter than full absolute URL — helps in-app mail clients that truncate long go.html?b= links. */
-      function compactPageRefForHandoff() {
-        var u = new URL(window.location.href);
-        if ((u.pathname || '').indexOf('go.html') !== -1) return u.href;
-        var path = u.pathname || '/';
-        var slash = path.lastIndexOf('/');
-        var file = slash >= 0 ? path.slice(slash + 1) : path;
-        return file + (u.search || '') + (u.hash || '');
-      }
-
-      function mailHandoffUrlForCurrentPage() {
-        if (window.location.href.indexOf('/go.html') !== -1) {
-          return window.location.href;
-        }
-        var hop = new URL('go.html', window.location.href);
-        hop.searchParams.set('b', toHandoffB64(compactPageRefForHandoff()));
-        return hop.href;
-      }
-
-      function navigateToMailHandoff() {
-        window.location.href = mailHandoffUrlForCurrentPage();
-      }
-
       function syncAppExitHref() {
         var link = document.getElementById('appExitBtn');
-        if (link) link.href = mailHandoffUrlForCurrentPage();
+        if (link) link.href = window.location.href;
       }
 
       function showAppExitBanner(mode) {
@@ -336,10 +304,7 @@
         var link = document.getElementById('appExitBtn');
         if (!link || link.getAttribute('data-wired') === '1') return;
         link.setAttribute('data-wired', '1');
-        link.addEventListener('click', function (ev) {
-          ev.preventDefault();
-          navigateToMailHandoff();
-        });
+        syncAppExitHref();
       }
 
       function esc(s) {
