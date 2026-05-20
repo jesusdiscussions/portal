@@ -16,7 +16,9 @@
       --err: #c5221f;
       --err-bg: #fce8e6;
       --border: #e0e3e7;
+      --exit-banner-h: 0px;
     }
+    html.has-app-exit-banner { --exit-banner-h: 52px; }
     * { box-sizing: border-box; }
     body {
       margin: 0;
@@ -63,9 +65,69 @@
     .state { display: none; }
     .state.on { display: block; }
     a { color: var(--accent); }
+
+    body.has-app-exit-padding {
+      padding-top: calc(1.5rem + var(--exit-banner-h));
+    }
+
+    .app-exit-banner {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10001;
+      align-items: center;
+      justify-content: center;
+      padding: 0.55rem 0.75rem;
+      text-align: center;
+      background: #e8f0fe;
+      border-bottom: 2px solid #c6dafc;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    .app-exit-banner.is-visible { display: flex; }
+    .app-exit-banner--hint {
+      background: linear-gradient(90deg, #fff8e1, #e3f2fd);
+      border-bottom-color: #ffc107;
+    }
+    .app-exit-banner--urgent {
+      background: linear-gradient(90deg, #fce8e6, #fff3e0);
+      border-bottom-color: #ea4335;
+      animation: exitPulse 1.6s ease-in-out infinite;
+    }
+    @keyframes exitPulse {
+      0%, 100% { box-shadow: 0 2px 12px rgba(234, 67, 53, 0.25); }
+      50% { box-shadow: 0 4px 20px rgba(234, 67, 53, 0.45); }
+    }
+    .app-exit-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      max-width: 100%;
+      padding: 0.55rem 1rem;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #0d47a1;
+      text-decoration: none;
+      background: #fff;
+      border: 2px solid #1a73e8;
+      border-radius: 999px;
+      box-shadow: 0 2px 6px rgba(26, 115, 232, 0.2);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .app-exit-banner--urgent .app-exit-btn {
+      color: #b31412;
+      border-color: #c5221f;
+    }
+    .app-exit-btn:active { transform: scale(0.98); }
   </style>
 </head>
 <body>
+  <div id="appExitBanner" class="app-exit-banner" role="region" aria-label="Open in system browser" aria-hidden="true">
+    <a id="appExitBtn" class="app-exit-btn" href="#" target="_blank" rel="noopener noreferrer">👉 Stuck in an App? Click here to Open in Chrome/Safari</a>
+  </div>
   <main class="card">
     <section id="sLoad" class="state on" aria-live="polite">
       <div class="icon load" aria-hidden="true"><div class="spinner"></div></div>
@@ -101,6 +163,73 @@
         var d = document.createElement('div');
         d.textContent = s;
         return d.innerHTML;
+      }
+
+      function looksLikeInAppBrowser() {
+        var ua = navigator.userAgent || '';
+        if (/YMail|YahooMail|YahooMobileMail|Yahoo\/.*Mail|yahoomail/i.test(ua)) return true;
+        if (/FBAN|FBAV|Instagram|Snapchat|Line\/|\bFB_IAB\b/i.test(ua)) return true;
+        if (/; wv\)|\bwv\)/i.test(ua)) return true;
+        if (/YJApp-IOS|YJApp-Android/i.test(ua)) return true;
+        return false;
+      }
+
+      function syncAppExitHref() {
+        var link = document.getElementById('appExitBtn');
+        if (link) link.href = window.location.href;
+      }
+
+      function showAppExitBanner(mode) {
+        var wrap = document.getElementById('appExitBanner');
+        if (!wrap) return;
+        wrap.classList.remove('app-exit-banner--hint', 'app-exit-banner--urgent');
+        wrap.classList.add('is-visible');
+        if (mode === 'urgent') wrap.classList.add('app-exit-banner--urgent');
+        else if (mode === 'hint') wrap.classList.add('app-exit-banner--hint');
+        document.documentElement.classList.add('has-app-exit-banner');
+        document.body.classList.add('has-app-exit-padding');
+        wrap.setAttribute('aria-hidden', 'false');
+        syncAppExitHref();
+      }
+
+      function wireAppExitBanner() {
+        var link = document.getElementById('appExitBtn');
+        if (!link || link.getAttribute('data-wired') === '1') return;
+        link.setAttribute('data-wired', '1');
+        link.addEventListener('click', function (ev) {
+          var url = window.location.href;
+          ev.preventDefault();
+          syncAppExitHref();
+          var w = null;
+          try {
+            w = window.open(url, '_blank', 'noopener,noreferrer');
+          } catch (e) {
+            w = null;
+          }
+          if (w) {
+            try {
+              w.opener = null;
+            } catch (e2) { /* ignore */ }
+            return;
+          }
+          try {
+            var a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          } catch (e3) {
+            window.top.location.href = url;
+          }
+        });
+      }
+
+      wireAppExitBanner();
+      if (looksLikeInAppBrowser()) {
+        showAppExitBanner('hint');
       }
 
       function callApi(params) {
@@ -207,16 +336,19 @@
       if (!payload.cmd || (payload.cmd !== 'confirm' && payload.cmd !== 'unsub')) {
         show('sErr');
         document.getElementById('errMsg').textContent = 'Missing or invalid action (confirm or unsub).';
+        if (looksLikeInAppBrowser()) showAppExitBanner('hint');
         return;
       }
       if (!payload.post) {
         show('sErr');
         document.getElementById('errMsg').textContent = 'Missing post parameter.';
+        if (looksLikeInAppBrowser()) showAppExitBanner('hint');
         return;
       }
       if (!payload.email) {
         show('sErr');
         document.getElementById('errMsg').textContent = 'Missing email parameter.';
+        if (looksLikeInAppBrowser()) showAppExitBanner('hint');
         return;
       }
 
@@ -236,10 +368,16 @@
         }
 
         show('sErr');
-        document.getElementById('errMsg').textContent =
-          (data && data.message) || 'Request failed.';
+        var errText = (data && data.message) || 'Request failed.';
+        document.getElementById('errMsg').textContent = errText;
+        if (/timed out|embed|jsonp|blocked|could not reach|reach the service/i.test(errText)) {
+          showAppExitBanner('urgent');
+        } else if (looksLikeInAppBrowser()) {
+          showAppExitBanner('hint');
+        }
       }).catch(function (e) {
         show('sErr');
+        showAppExitBanner('urgent');
         document.getElementById('errMsg').textContent =
           'Could not reach the service. If you are inside Yahoo Mail or another in-app browser, open this page in Safari or Chrome, then try again. ' +
           (e.message || '');

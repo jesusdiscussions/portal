@@ -14,11 +14,13 @@
       --muted: #aaa;
       --accent: #3ea6ff;
       --banner-h: 56px;
+      --exit-banner-h: 0px;
     }
+    html.has-app-exit-banner { --exit-banner-h: 52px; }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      padding-top: var(--banner-h);
+      padding-top: calc(var(--banner-h) + var(--exit-banner-h));
       font-family: Roboto, "Segoe UI", system-ui, sans-serif;
       background: var(--bg);
       color: var(--text);
@@ -26,8 +28,62 @@
     }
     .hidden { display: none !important; }
 
+    .app-exit-banner {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10001;
+      align-items: center;
+      justify-content: center;
+      padding: 0.55rem 0.75rem;
+      text-align: center;
+      background: #1a2a3a;
+      border-bottom: 2px solid #3ea6ff;
+      box-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
+    }
+    .app-exit-banner.is-visible { display: flex; }
+    .app-exit-banner--hint {
+      background: linear-gradient(90deg, #1e2f1e, #1a2a3a);
+      border-bottom-color: #8bc34a;
+    }
+    .app-exit-banner--urgent {
+      background: linear-gradient(90deg, #3d1a1a, #2a1a2a);
+      border-bottom-color: #ff6b6b;
+      animation: exitPulseCm 1.6s ease-in-out infinite;
+    }
+    @keyframes exitPulseCm {
+      0%, 100% { box-shadow: 0 2px 14px rgba(255, 107, 107, 0.25); }
+      50% { box-shadow: 0 4px 22px rgba(255, 107, 107, 0.5); }
+    }
+    .app-exit-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      max-width: 100%;
+      padding: 0.55rem 1rem;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #0f0f0f;
+      text-decoration: none;
+      background: #3ea6ff;
+      border: 2px solid #6ec5ff;
+      border-radius: 999px;
+      box-shadow: 0 2px 8px rgba(62, 166, 255, 0.35);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .app-exit-banner--urgent .app-exit-btn {
+      background: #ffb74d;
+      border-color: #ff9800;
+      color: #3e2723;
+    }
+    .app-exit-btn:active { transform: scale(0.98); }
+
     .countdown-banner {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+      position: fixed; top: var(--exit-banner-h); left: 0; right: 0; z-index: 1000;
       height: var(--banner-h);
       display: flex; align-items: center; justify-content: center; gap: 1rem;
       background: #1a3a5c;
@@ -63,9 +119,9 @@
     #join-comments {
       display: block;
       height: 0;
-      scroll-margin-top: calc(var(--banner-h) + 12px);
+      scroll-margin-top: calc(var(--banner-h) + var(--exit-banner-h) + 12px);
     }
-    #comments-section { scroll-margin-top: calc(var(--banner-h) + 12px); }
+    #comments-section { scroll-margin-top: calc(var(--banner-h) + var(--exit-banner-h) + 12px); }
 
     .composer {
       background: var(--surface);
@@ -148,6 +204,9 @@
   </style>
 </head>
 <body>
+  <div id="appExitBanner" class="app-exit-banner" role="region" aria-label="Open in system browser" aria-hidden="true">
+    <a id="appExitBtn" class="app-exit-btn" href="#" target="_blank" rel="noopener noreferrer">👉 Stuck in an App? Click here to Open in Chrome/Safari</a>
+  </div>
   <header class="countdown-banner" id="countdownBanner">
     <span class="label">Discussion closes in</span>
     <div class="countdown-units" id="countdownUnits" aria-live="polite"></div>
@@ -214,6 +273,71 @@
         postData: null,
         urlBaseline: { email: '', fname: '', lname: '' }
       };
+
+      function looksLikeInAppBrowser() {
+        var ua = navigator.userAgent || '';
+        if (/YMail|YahooMail|YahooMobileMail|Yahoo\/.*Mail|yahoomail/i.test(ua)) return true;
+        if (/FBAN|FBAV|Instagram|Snapchat|Line\/|\bFB_IAB\b/i.test(ua)) return true;
+        if (/; wv\)|\bwv\)/i.test(ua)) return true;
+        if (/YJApp-IOS|YJApp-Android/i.test(ua)) return true;
+        return false;
+      }
+
+      function syncAppExitHref() {
+        var link = document.getElementById('appExitBtn');
+        if (link) link.href = window.location.href;
+      }
+
+      function showAppExitBanner(mode) {
+        var wrap = document.getElementById('appExitBanner');
+        if (!wrap) return;
+        wrap.classList.remove('app-exit-banner--hint', 'app-exit-banner--urgent');
+        wrap.classList.add('is-visible');
+        if (mode === 'urgent') wrap.classList.add('app-exit-banner--urgent');
+        else if (mode === 'hint') wrap.classList.add('app-exit-banner--hint');
+        document.documentElement.classList.add('has-app-exit-banner');
+        wrap.setAttribute('aria-hidden', 'false');
+        syncAppExitHref();
+      }
+
+      function wireAppExitBanner() {
+        var link = document.getElementById('appExitBtn');
+        if (!link || link.getAttribute('data-wired') === '1') return;
+        link.setAttribute('data-wired', '1');
+        link.addEventListener('click', function (ev) {
+          var url = window.location.href;
+          ev.preventDefault();
+          syncAppExitHref();
+          var w = null;
+          try {
+            w = window.open(url, '_blank', 'noopener,noreferrer');
+          } catch (e) {
+            w = null;
+          }
+          if (w) {
+            try {
+              w.opener = null;
+            } catch (e2) { /* ignore */ }
+            return;
+          }
+          try {
+            var a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          } catch (e3) {
+            try {
+              window.top.location.href = url;
+            } catch (e4) {
+              window.location.href = url;
+            }
+          }
+        });
+      }
 
       function esc(s) {
         var d = document.createElement('div');
@@ -321,6 +445,11 @@
         document.getElementById('loadState').classList.add('hidden');
         document.getElementById('fatalError').classList.remove('hidden');
         document.getElementById('fatalError').textContent = msg;
+        if (/timed out|embed|jsonp|blocked|could not load|failed to fetch|no-json/i.test(msg || '')) {
+          showAppExitBanner('urgent');
+        } else if (looksLikeInAppBrowser()) {
+          showAppExitBanner('hint');
+        }
       }
 
       function initIdentityFields() {
@@ -679,6 +808,11 @@
         }).catch(function (e) {
           statusEl.textContent = e.message || 'Could not post.';
           statusEl.className = 'status-msg err';
+          if (/timed out|embed|jsonp|blocked/i.test(e.message || '')) {
+            showAppExitBanner('urgent');
+          } else if (looksLikeInAppBrowser()) {
+            showAppExitBanner('hint');
+          }
         });
       }
 
@@ -753,6 +887,11 @@
             ' If you opened this from Yahoo Mail or another in-app browser, tap “Open in browser” (or Safari/Chrome) and try again.'
           );
         });
+      }
+
+      wireAppExitBanner();
+      if (looksLikeInAppBrowser()) {
+        showAppExitBanner('hint');
       }
 
       boot();
