@@ -79,9 +79,22 @@ function onOpen() {
     .createMenu('Blog Platform Engine')
     .addItem('Setup sheets (one-shot)', 'setupSheets')
     .addItem('Set GitHub Pages base URL…', 'promptGitHubPagesUrl')
+    .addItem('Open web app deployments…', 'openWebAppDeployments')
     .addSeparator()
     .addItem('Run Post Send & Sync', 'runPostEngine')
     .addToUi();
+}
+
+/** Opens Apps Script deployment manager (set access to Anyone, then New version). */
+function openWebAppDeployments() {
+  var scriptId = ScriptApp.getScriptId();
+  var url = 'https://script.google.com/home/projects/' + scriptId + '/deployments';
+  var html = HtmlService.createHtmlOutput(
+    '<p>Update <b>Emailer Backend</b>: Edit → New version → Who has access: <b>Anyone</b></p>' +
+    '<p><a href="' + url + '" target="_blank">Open Deployments</a></p>' +
+    '<script>window.open(' + JSON.stringify(url) + ');</script>'
+  ).setWidth(420).setHeight(120);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Web app access');
 }
 
 /** Saves GITHUB_PAGES_BASE_URL script property (used by email link factory). */
@@ -621,9 +634,10 @@ function resolvePostIdFromUrlParameters(params) {
   return String(params.camp || '').trim();
 }
 
-/** GitHub Pages comment portal (standalone HTML, not Apps Script). */
+/** Subscriber comment portal (served by this web app doGet). */
 function buildCommentsPageLink(postId, email, fname, lname, deadlineIso) {
   var params = [
+    'page=comments',
     'post=' + encodeURIComponent(postId),
     'email=' + encodeURIComponent(email),
     'fname=' + encodeURIComponent(fname || ''),
@@ -632,7 +646,7 @@ function buildCommentsPageLink(postId, email, fname, lname, deadlineIso) {
   if (deadlineIso) {
     params.push('deadline=' + encodeURIComponent(deadlineIso));
   }
-  return getGitHubPagesBaseUrl() + '/CommentsPage.html?' + params.join('&');
+  return getWebAppUrl() + '?' + params.join('&');
 }
 
 function buildPostLink(action, postId, email, fname, lname, deadlineIso) {
@@ -647,7 +661,7 @@ function buildPostLink(action, postId, email, fname, lname, deadlineIso) {
     'fname=' + encodeURIComponent(fname || ''),
     'lname=' + encodeURIComponent(lname || '')
   ];
-  return getGitHubPagesBaseUrl() + '/index.html?' + params.join('&');
+  return getWebAppUrl() + '?' + params.join('&');
 }
 
 function getDeadlineIsoFromSentAndDays(sentAt, daysOpen) {
@@ -693,55 +707,44 @@ function stripHtml(html) {
 // ——— Web app routing ———
 
 /**
- * GET: legacy Apps Script links (post or camp) redirect to GitHub Pages with post=.
- * Otherwise returns API info (POST JSON to web app URL).
+ * GET: serves subscriber HTML (index / CommentsPage) or JSON API (?api=json).
+ * Email links and legacy GitHub Pages redirects should land here (not cross-origin fetch).
  */
 function doGet(e) {
   var params = (e && e.parameter) || {};
   var postId = resolvePostIdFromUrlParameters(params);
   var action = normalizeAction(params.action || '');
+  var page = String(params.page || '').trim().toLowerCase();
 
-  if (action && postId) {
-    var email = String(params.email || '').trim();
-    var fname = String(params.fname || '').trim();
-    var lname = String(params.lname || '').trim();
-    var deadline = String(params.deadline || '').trim();
-    var target = buildPostLink(
-      action,
-      postId,
-      email,
-      fname,
-      lname,
-      deadline || undefined
-    );
-    return HtmlService.createHtmlOutput(
-      '<!DOCTYPE html><html><head><meta charset="utf-8">' +
-      '<title>Redirecting</title></head><body>' +
-      '<script>window.location.replace(' + JSON.stringify(target) + ');</script>' +
-      '<p>Redirecting… <a href="' + escapeHtml(target) + '">Continue</a></p></body></html>'
-    ).setTitle('Redirecting');
+  if (String(params.api || '').trim().toLowerCase() === 'json') {
+    var payload = parseIncomingPayload({ parameter: params });
+    if (payload.comment) {
+      return corsJson(handleCommentSubmissionData(payload));
+    }
+    return corsJson(handleExternalActionData(payload));
+  }
+
+  if (page === 'comments' || action === 'comments') {
+    return HtmlService.createHtmlOutputFromFile('CommentsPage')
+      .setTitle('Post — Community')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+
+  if (action === 'confirm' || action === 'unsub') {
+    return HtmlService.createHtmlOutputFromFile('index')
+      .setTitle('Post')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
   if (postId && String(params.email || '').trim()) {
-    var commentsTarget = buildCommentsPageLink(
-      postId,
-      String(params.email || '').trim(),
-      String(params.fname || '').trim(),
-      String(params.lname || '').trim(),
-      String(params.deadline || '').trim() || undefined
-    );
-    return HtmlService.createHtmlOutput(
-      '<!DOCTYPE html><html><head><meta charset="utf-8">' +
-      '<title>Redirecting</title></head><body>' +
-      '<script>window.location.replace(' + JSON.stringify(commentsTarget) + ');</script>' +
-      '<p>Redirecting… <a href="' + escapeHtml(commentsTarget) + '">Continue</a></p></body></html>'
-    ).setTitle('Redirecting');
+    return HtmlService.createHtmlOutputFromFile('index')
+      .setTitle('Post')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
   return textPage(
-    'Blog Platform Engine API (POST to ' + getWebAppUrl() + '). ' +
-      'Subscriber UI: GitHub Pages index.html and CommentsPage.html. ' +
-      'URL params: post (or legacy camp), action, email.',
+    'Blog Platform Engine — open a link from your post email, or use ' +
+      getWebAppUrl() + ' with post, action, and email parameters.',
     'Blog Platform Engine'
   );
 }
@@ -792,7 +795,21 @@ function resolvePostIdFromPayload(payload) {
   return resolvePostIdFromUrlParameters(payload);
 }
 
+/** Called from HtmlService via google.script.run (no cross-origin fetch). */
+function apiExternalAction(payload) {
+  return handleExternalActionData(payload);
+}
+
+/** Called from HtmlService via google.script.run. */
+function apiCommentSubmit(payload) {
+  return handleCommentSubmissionData(payload);
+}
+
 function handleExternalAction(payload) {
+  return corsJson(handleExternalActionData(payload));
+}
+
+function handleExternalActionData(payload) {
   var action = normalizeAction(payload.action);
   var postId = resolvePostIdFromPayload(payload);
   var email = String(payload.email || '').trim();
@@ -800,52 +817,52 @@ function handleExternalAction(payload) {
   var lname = String(payload.lname || '').trim();
 
   if (!action) {
-    return corsJson({ status: 'error', message: 'Missing action parameter.' });
+    return { status: 'error', message: 'Missing action parameter.' };
   }
   if (!postId) {
-    return corsJson({ status: 'error', message: 'Missing post (Post ID) parameter.' });
+    return { status: 'error', message: 'Missing post (Post ID) parameter.' };
   }
 
   if (action === 'confirm') {
     if (!email) {
-      return corsJson({ status: 'error', message: 'Missing email parameter.' });
+      return { status: 'error', message: 'Missing email parameter.' };
     }
     var confirmed = updatePostStatus(postId, email, STATUS_CONFIRMED);
     if (!confirmed) {
-      return corsJson({
+      return {
         status: 'error',
         message: 'We could not find a matching subscription for this post.'
-      });
+      };
     }
-    return corsJson({
+    return {
       status: 'success',
       message: 'Your subscription is confirmed.'
-    });
+    };
   }
 
   if (action === 'unsub') {
     if (!email) {
-      return corsJson({ status: 'error', message: 'Missing email parameter.' });
+      return { status: 'error', message: 'Missing email parameter.' };
     }
     var unsubscribed = updatePostStatus(postId, email, STATUS_UNSUBSCRIBED);
     if (!unsubscribed) {
-      return corsJson({
+      return {
         status: 'error',
         message: 'We could not find a matching subscription for this post.'
-      });
+      };
     }
-    return corsJson({
+    return {
       status: 'success',
       message: 'You have successfully unsubscribed from this post.',
       resubscribeUrl: buildPostLink('confirm', postId, email, fname, lname)
-    });
+    };
   }
 
   if (action === 'comments') {
-    return corsJson(getCommentsPortalPayload(postId, email, fname, lname));
+    return getCommentsPortalPayload(postId, email, fname, lname);
   }
 
-  return corsJson({ status: 'error', message: 'Unknown action: ' + action });
+  return { status: 'error', message: 'Unknown action: ' + action };
 }
 
 /** Portal data bundle for GitHub Pages comments view. */
@@ -879,6 +896,10 @@ function getCommentsPortalPayload(postId, email, fname, lname) {
 }
 
 function handleCommentSubmission(payload) {
+  return corsJson(handleCommentSubmissionData(payload));
+}
+
+function handleCommentSubmissionData(payload) {
   var postId = resolvePostIdFromPayload(payload);
   var text = String(payload.comment || '').trim();
   var email = String(payload.email || '').trim();
@@ -887,42 +908,42 @@ function handleCommentSubmission(payload) {
   var parentId = String(payload.parentId || '').trim();
 
   if (!postId) {
-    return corsJson({ status: 'error', message: 'Post ID is required.', success: false });
+    return { status: 'error', message: 'Post ID is required.', success: false };
   }
   if (!text) {
-    return corsJson({ status: 'error', message: 'Comment cannot be empty.', success: false });
+    return { status: 'error', message: 'Comment cannot be empty.', success: false };
   }
 
   var meta = findPostByWebId(postId);
   if (!meta.found) {
-    return corsJson({ status: 'error', message: 'Post not found.', success: false });
+    return { status: 'error', message: 'Post not found.', success: false };
   }
   var deadlineIso = getDeadlineIsoFromSentAndDays(meta.sentAt, meta.daysOpen);
   if (isExpiredByDeadline(deadlineIso) || isPostExpired(meta.sentAt, meta.daysOpen)) {
-    return corsJson({
+    return {
       status: 'error',
       message: 'The discussion period has ended.',
       expired: true,
       success: false
-    });
+    };
   }
 
   var displayName = [fname, lname].filter(Boolean).join(' ').trim() || 'Anonymous';
 
   try {
     appendComment(postId, parentId, email, displayName, text);
-    return corsJson({
+    return {
       status: 'success',
       success: true,
       message: 'Comment posted.',
       comments: getCommentsForPost(postId)
-    });
+    };
   } catch (err) {
-    return corsJson({
+    return {
       status: 'error',
       success: false,
       message: (err && err.message) ? err.message : 'Could not save comment.'
-    });
+    };
   }
 }
 

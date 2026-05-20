@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <base target="_top">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Post</title>
@@ -111,8 +112,16 @@
       /** Keep in sync with WEB_APP_URL_DEFAULT in Code.gs */
       var WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxa3oj2BTcEQladm9llk7yyMYU2vcy7GzQ_dqbnPVGAUiSY9Imf_VZqjIJAHSDD-Q_wbw/exec';
 
-      /** Same folder as index.html on GitHub Pages */
-      var COMMENTS_PAGE = 'CommentsPage.html';
+      function isAppsScriptHost() {
+        return typeof google !== 'undefined' && google.script && google.script.run;
+      }
+
+      /** Legacy GitHub Pages links → same web app (avoids cross-origin fetch / 401). */
+      if (/\.github\.io$/i.test(window.location.hostname)) {
+        var ghQs = new URLSearchParams(window.location.search);
+        window.location.replace(WEBAPP_URL + '?' + ghQs.toString());
+        return;
+      }
 
       function resolvePostId(params) {
         var post = (params.get('post') || '').trim();
@@ -129,15 +138,37 @@
         return body;
       }
 
+      function callBackend(method, data) {
+        var body = withPostAndCamp(resolvePostId(new URLSearchParams(window.location.search)), data);
+        if (isAppsScriptHost()) {
+          return new Promise(function (resolve, reject) {
+            google.script.run
+              .withSuccessHandler(resolve)
+              .withFailureHandler(function (err) {
+                reject(new Error(err && err.message ? err.message : String(err)));
+              })
+              [method](body);
+          });
+        }
+        var url = new URL(WEBAPP_URL);
+        Object.keys(body).forEach(function (key) {
+          if (body[key] !== undefined && body[key] !== null && body[key] !== '') {
+            url.searchParams.set(key, String(body[key]));
+          }
+        });
+        url.searchParams.set('api', 'json');
+        return fetch(url.toString(), { method: 'GET', redirect: 'follow' })
+          .then(function (res) {
+            if (!res.ok) throw new Error('Server returned ' + res.status);
+            return res.json();
+          });
+      }
+
       var params = new URLSearchParams(window.location.search);
       var rawAction = (params.get('action') || '').trim().toLowerCase();
       if (rawAction === 'unsubscribe') rawAction = 'unsub';
       if (rawAction === 'portal' || rawAction === 'comments') rawAction = 'comments';
 
-      /**
-       * Comment portal lives on CommentsPage.html (avoids Apps Script multi-account bug).
-       * Forwards post, email, fname, lname, deadline — drops action (not needed there).
-       */
       if (rawAction === 'comments') {
         var forward = new URLSearchParams();
         var postVal = resolvePostId(params);
@@ -146,8 +177,9 @@
           var val = params.get(key);
           if (val) forward.set(key, val);
         });
-        var qs = forward.toString();
-        window.location.replace(COMMENTS_PAGE + (qs ? '?' + qs : ''));
+        forward.set('page', 'comments');
+        var execBase = window.location.href.split('?')[0];
+        window.location.replace(execBase + '?' + forward.toString());
         return;
       }
 
@@ -159,18 +191,6 @@
         fname: (params.get('fname') || '').trim(),
         lname: (params.get('lname') || '').trim()
       };
-
-      function postToAppsScript(data) {
-        return fetch(WEBAPP_URL, {
-          method: 'POST',
-          redirect: 'follow',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(data)
-        }).then(function (res) {
-          if (!res.ok) throw new Error('Server returned ' + res.status);
-          return res.json();
-        });
-      }
 
       function escapeHtml(s) {
         var d = document.createElement('div');
@@ -222,7 +242,7 @@
         return;
       }
 
-      postToAppsScript(withPostAndCamp(postId, payload))
+      callBackend('apiExternalAction', payload)
         .then(function (data) {
           if (data && data.status === 'success') {
             showSuccess(data);

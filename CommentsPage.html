@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <base target="_top">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Post — Community</title>
@@ -363,6 +364,17 @@
       /** Keep in sync with WEB_APP_URL_DEFAULT in Code.gs */
       var WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxa3oj2BTcEQladm9llk7yyMYU2vcy7GzQ_dqbnPVGAUiSY9Imf_VZqjIJAHSDD-Q_wbw/exec';
 
+      function isAppsScriptHost() {
+        return typeof google !== 'undefined' && google.script && google.script.run;
+      }
+
+      if (/\.github\.io$/i.test(window.location.hostname)) {
+        var ghQs = new URLSearchParams(window.location.search);
+        if (!ghQs.get('page')) ghQs.set('page', 'comments');
+        window.location.replace(WEBAPP_URL + '?' + ghQs.toString());
+        return;
+      }
+
       function resolvePostId(params) {
         var post = (params.get('post') || '').trim();
         if (post) return post;
@@ -376,6 +388,32 @@
           body.camp = postId;
         }
         return body;
+      }
+
+      function callBackend(method, data) {
+        var body = withPostAndCamp(postId, data);
+        if (isAppsScriptHost()) {
+          return new Promise(function (resolve, reject) {
+            google.script.run
+              .withSuccessHandler(resolve)
+              .withFailureHandler(function (err) {
+                reject(new Error(err && err.message ? err.message : String(err)));
+              })
+              [method](body);
+          });
+        }
+        var url = new URL(WEBAPP_URL);
+        Object.keys(body).forEach(function (key) {
+          if (body[key] !== undefined && body[key] !== null && body[key] !== '') {
+            url.searchParams.set(key, String(body[key]));
+          }
+        });
+        url.searchParams.set('api', 'json');
+        return fetch(url.toString(), { method: 'GET', redirect: 'follow' })
+          .then(function (res) {
+            if (!res.ok) throw new Error('Server returned ' + res.status);
+            return res.json();
+          });
       }
 
       var params = new URLSearchParams(window.location.search);
@@ -396,18 +434,6 @@
         isLocked: false,
         deadlineIso: payload.deadline || ''
       };
-
-      function postToAppsScript(data) {
-        return fetch(WEBAPP_URL, {
-          method: 'POST',
-          redirect: 'follow',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(data)
-        }).then(function (res) {
-          if (!res.ok) throw new Error('Server returned ' + res.status);
-          return res.json();
-        });
-      }
 
       function escapeHtml(s) {
         var d = document.createElement('div');
@@ -436,7 +462,7 @@
         document.getElementById('composerLabel').textContent =
           'Commenting as ' + displayName;
 
-        postToAppsScript(withPostAndCamp(postId, payload))
+        callBackend('apiExternalAction', payload)
           .then(function (data) {
             if (!data || data.status !== 'success') {
               showFatal((data && data.message) || 'Could not load portal.');
@@ -678,14 +704,14 @@
         statusEl.textContent = 'Posting…';
         statusEl.className = 'status-msg';
 
-        postToAppsScript(withPostAndCamp(postId, {
+        callBackend('apiCommentSubmit', {
           post: postId,
           comment: text,
           email: payload.email,
           fname: payload.fname,
           lname: payload.lname,
           parentId: parentId || ''
-        }))
+        })
           .then(function (data) {
             if (data && (data.status === 'success' || data.success)) {
               statusEl.textContent = data.message || 'Posted.';
