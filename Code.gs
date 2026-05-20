@@ -425,15 +425,11 @@ function buildGitHubPageUrl(page, queryMap, hash) {
   return url;
 }
 
+/** Email links stay short: camp + email (+ optional names). Deadline comes from posts/*.json or API. */
 function buildEmailFooter(webPostId, email, fname, lname, deadlineIso) {
-  var q = {
-    post: webPostId,
-    camp: webPostId,
-    email: email,
-    fname: fname || '',
-    lname: lname || ''
-  };
-  if (deadlineIso) q.deadline = deadlineIso;
+  var q = { camp: webPostId, email: email };
+  if (fname) q.fname = fname;
+  if (lname) q.lname = lname;
   var confirm = buildGitHubPageUrl('index.html', Object.assign({ action: 'confirm' }, q));
   var unsub = buildGitHubPageUrl('index.html', Object.assign({ action: 'unsub' }, q));
   var comments = buildGitHubPageUrl('CommentsPage.html', q, '#join-comments');
@@ -672,9 +668,10 @@ function apiStatusUpdate(payload, newStatus) {
       : 'You have successfully unsubscribed from this post.'
   };
   if (newStatus === STATUS_UNSUBSCRIBED) {
-    body.resubscribeUrl = buildGitHubPageUrl('index.html', {
-      action: 'confirm', post: postId, camp: postId, email: email, fname: fname, lname: lname
-    });
+    var rq = { action: 'confirm', camp: postId, email: email };
+    if (fname) rq.fname = fname;
+    if (lname) rq.lname = lname;
+    body.resubscribeUrl = buildGitHubPageUrl('index.html', rq);
   }
   return { ok: true, _rawJson: JSON.stringify(body) };
 }

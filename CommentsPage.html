@@ -754,7 +754,6 @@
 
         callApi({
           cmd: 'comment',
-          post: postId,
           camp: postId,
           comment: text,
           email: email,
@@ -784,26 +783,88 @@
         });
       }
 
+      var portalBound = false;
+      var countdownTimer = null;
+
+      function portalFromJson(postJson) {
+        return {
+          postId: postJson.postId || postId,
+          subject: postJson.subject,
+          messageHtml: postJson.messageHtml,
+          attachments: postJson.attachments,
+          daysOpen: postJson.daysOpen,
+          launchedAt: postJson.launchedAt
+        };
+      }
+
+      function showPortal(postJson) {
+        state.postData = postJson;
+        document.getElementById('loadState').classList.add('hidden');
+        document.getElementById('fatalError').classList.add('hidden');
+        document.getElementById('portalMain').classList.remove('hidden');
+        renderPost(postJson);
+        renderFeed(state.comments);
+        renderCountdown();
+        if (!countdownTimer) {
+          countdownTimer = setInterval(renderCountdown, 1000);
+        }
+        if (state.expired) lockDiscussion();
+
+        if (!portalBound) {
+          portalBound = true;
+          document.getElementById('mainSubmitBtn').addEventListener('click', function () {
+            var txt = document.getElementById('mainCommentText').value.trim();
+            if (!txt) return;
+            submitComment(txt, '', document.getElementById('mainStatus'), function () {
+              document.getElementById('mainCommentText').value = '';
+            });
+          });
+        }
+
+        if (window.location.hash === '#join-comments') {
+          requestAnimationFrame(function () {
+            document.getElementById('join-comments').scrollIntoView({ behavior: 'smooth' });
+          });
+        }
+      }
+
       function boot() {
         if (!postId) {
-          showFatal('Missing post parameter in URL.');
+          showFatal('Missing camp (post) parameter in URL.');
           return;
         }
 
         initIdentityFields();
 
-        Promise.all([
-          loadPostJson().catch(function () { return null; }),
-          callApi({ cmd: 'getComments', post: postId, camp: postId })
-        ]).then(function (results) {
-          var postJson = results[0];
-          var commentResp = results[1];
+        loadPostJson()
+          .catch(function () { return null; })
+          .then(function (postJson) {
+            if (postJson) {
+              showPortal(portalFromJson(postJson));
+            }
 
-          if (commentResp && commentResp.ok) {
-            state.comments = commentResp.comments || [];
-          }
+            return Promise.all([
+              Promise.resolve(postJson),
+              callApi({ cmd: 'getComments', camp: postId }).catch(function (e) {
+                return { ok: false, _err: e };
+              }),
+              callApi({ cmd: 'getPortal', camp: postId }).catch(function (e) {
+                return { ok: false, _err: e };
+              })
+            ]);
+          })
+          .then(function (results) {
+            var postJson = results[0];
+            var commentResp = results[1];
+            var portal = results[2];
+            var apiFailed = false;
 
-          return callApi({ cmd: 'getPortal', post: postId, camp: postId }).then(function (portal) {
+            if (commentResp && commentResp.ok) {
+              state.comments = commentResp.comments || [];
+            } else if (commentResp && commentResp._err) {
+              apiFailed = true;
+            }
+
             if (portal && portal.ok) {
               if (portal.deadlineIso) state.deadlineIso = portal.deadlineIso;
               state.expired = !!portal.expired;
@@ -816,45 +877,39 @@
                   attachments: portal.attachments,
                   daysOpen: portal.daysOpen
                 };
+                showPortal(postJson);
               }
-            } else if (portal && portal.message) {
+            } else if (portal && portal._err) {
+              apiFailed = true;
+            } else if (portal && portal.message && !postJson) {
               throw new Error(portal.message);
             }
-            return postJson;
-          });
-        }).then(function (postJson) {
-          if (!postJson) {
-            showFatal('Post content not found. Run Post Send & Sync from the spreadsheet.');
-            return;
-          }
-          state.postData = postJson;
-          document.getElementById('loadState').classList.add('hidden');
-          document.getElementById('portalMain').classList.remove('hidden');
-          renderPost(postJson);
-          renderFeed(state.comments);
-          renderCountdown();
-          setInterval(renderCountdown, 1000);
-          if (state.expired) lockDiscussion();
 
-          document.getElementById('mainSubmitBtn').addEventListener('click', function () {
-            var txt = document.getElementById('mainCommentText').value.trim();
-            if (!txt) return;
-            submitComment(txt, '', document.getElementById('mainStatus'), function () {
-              document.getElementById('mainCommentText').value = '';
-            });
-          });
+            if (!postJson) {
+              showFatal('Post content not found. Run Post Send & Sync from the spreadsheet.');
+              return;
+            }
 
-          if (window.location.hash === '#join-comments') {
-            requestAnimationFrame(function () {
-              document.getElementById('join-comments').scrollIntoView({ behavior: 'smooth' });
-            });
-          }
-        }).catch(function (e) {
-          showFatal(
-            'Could not load post. ' + (e.message || '') +
-            ' If you opened this from Yahoo Mail or another in-app browser, tap “Open in browser” (or Safari/Chrome) and try again.'
-          );
-        });
+            if (state.postData) {
+              renderFeed(state.comments);
+              renderCountdown();
+              if (state.expired) lockDiscussion();
+            }
+
+            if (apiFailed) {
+              showAppExitBanner(looksLikeInAppBrowser() ? 'urgent' : 'hint');
+            }
+          })
+          .catch(function (e) {
+            if (state.postData) {
+              showAppExitBanner('urgent');
+              return;
+            }
+            showFatal(
+              'Could not load post. ' + (e.message || '') +
+              ' If you opened this from Yahoo Mail, tap ⋮ → Open in browser and try again.'
+            );
+          });
       }
 
       wireAppExitBanner();

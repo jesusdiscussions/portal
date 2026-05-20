@@ -298,7 +298,6 @@
 
       var payload = {
         cmd: action,
-        post: resolvePostId(params),
         camp: resolvePostId(params),
         email: (params.get('email') || '').trim(),
         fname: (params.get('fname') || '').trim(),
@@ -311,9 +310,9 @@
         if (looksLikeInAppBrowser()) showAppExitBanner('hint');
         return;
       }
-      if (!payload.post) {
+      if (!payload.camp) {
         show('sErr');
-        document.getElementById('errMsg').textContent = 'Missing post parameter.';
+        document.getElementById('errMsg').textContent = 'Missing camp (post) parameter.';
         if (looksLikeInAppBrowser()) showAppExitBanner('hint');
         return;
       }
@@ -351,7 +350,7 @@
         show('sErr');
         showAppExitBanner('urgent');
         document.getElementById('errMsg').textContent =
-          'Could not reach the service. If you are inside Yahoo Mail or another in-app browser, open this page in Safari or Chrome, then try again. ' +
+          'Could not reach the service from this in-app browser. In Yahoo Mail: tap ⋮ (menu) → Open in browser, then tap the link again. ' +
           (e.message || '');
       });
     })();
