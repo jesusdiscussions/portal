@@ -3,7 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+<<<<<<< HEAD
   <title>Post — Community</title>
+=======
+  <title>Campaign — Community</title>
+>>>>>>> 34c35752edd22d38c64028207a3ecbb03df1a1cb
   <style>
     :root {
       --bg: #0f0f0f;
@@ -324,7 +328,11 @@
     <div id="fatalError" class="fatal-error hidden"></div>
 
     <div id="portalMain" class="hidden">
+<<<<<<< HEAD
       <h1 class="page-title" id="pageTitle">Post</h1>
+=======
+      <h1 class="page-title" id="pageTitle">Campaign</h1>
+>>>>>>> 34c35752edd22d38c64028207a3ecbb03df1a1cb
       <p class="page-sub">Community portal</p>
 
       <section class="email-featured">
@@ -365,7 +373,11 @@
       var params = new URLSearchParams(window.location.search);
       var payload = {
         action: 'comments',
+<<<<<<< HEAD
         post: (params.get('post') || params.get('camp') || '').trim(),
+=======
+        camp: (params.get('camp') || '').trim(),
+>>>>>>> 34c35752edd22d38c64028207a3ecbb03df1a1cb
         email: (params.get('email') || '').trim(),
         fname: (params.get('fname') || '').trim(),
         lname: (params.get('lname') || '').trim(),
@@ -405,8 +417,13 @@
       }
 
       function init() {
+<<<<<<< HEAD
         if (!payload.post) {
           showFatal('Missing post (Post ID) in the URL.');
+=======
+        if (!payload.camp) {
+          showFatal('Missing camp (campaign ID) in the URL.');
+>>>>>>> 34c35752edd22d38c64028207a3ecbb03df1a1cb
           return;
         }
         if (!payload.email) {
@@ -436,9 +453,14 @@
         document.getElementById('loadState').classList.add('hidden');
         document.getElementById('portalMain').classList.remove('hidden');
 
+<<<<<<< HEAD
         var displayPostId = data.postId || data.campaignId;
         if (displayPostId) {
           document.getElementById('pageTitle').textContent = 'Post ' + displayPostId;
+=======
+        if (data.campaignId) {
+          document.getElementById('pageTitle').textContent = 'Campaign ' + data.campaignId;
+>>>>>>> 34c35752edd22d38c64028207a3ecbb03df1a1cb
         }
         if (data.deadlineIso) portal.deadlineIso = data.deadlineIso;
         portal.expired = !!data.expired;
@@ -662,7 +684,11 @@
         statusEl.className = 'status-msg';
 
         postToAppsScript({
+<<<<<<< HEAD
           post: payload.post,
+=======
+          camp: payload.camp,
+>>>>>>> 34c35752edd22d38c64028207a3ecbb03df1a1cb
           comment: text,
           email: payload.email,
           fname: payload.fname,
